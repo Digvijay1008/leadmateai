@@ -1,0 +1,33 @@
+# Leadmate Voice AI Agent - Requirements
+# Python 3.11+
+# LiveKit Agents 1.5+ (Mar 2026)
+
+# ===========================================
+# LiveKit SDK & Plugins (auto-resolves all versions)
+# ===========================================
+livekit-agents[deepgram,groq,silero,openai,sarvam,elevenlabs,turn-detector]>=1.5.1
+
+# ===========================================
+# HTTP & Async
+# ===========================================
+httpx>=0.28.0
+
+# ===========================================
+# Configuration & Validation
+# ===========================================
+pydantic>=2.10.0
+pydantic-settings>=2.7.0
+python-dotenv>=1.0.0
+
+# ===========================================
+# Logging & Observability
+# ===========================================
+structlog>=24.4.0
+
+# ===========================================
+# Development (optional)
+# ===========================================
+# pytest>=8.3.0
+# pytest-asyncio>=0.24.0
+# ruff>=0.8.0
+# mypy>=1.14.0

@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=75.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "leadmate-agent"
+version = "1.0.0"
+description = "Leadmate Voice AI Agent Runtime"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "Proprietary"}
+authors = [
+    {name = "Leadmate AI", email = "dev@leadmate.ai"}
+]
+
+dependencies = [
+    # LiveKit Agents runtime and plugin suite (compatible set)
+    "livekit-agents[deepgram,groq,silero,openai,sarvam,elevenlabs,turn-detector]>=1.5.1",
+    
+    # HTTP & Async
+    "httpx>=0.28.0",
+    "aiohttp>=3.11.0",
+    
+    # Optional direct SDK usage
+    "openai>=2.0.0",
+    
+    # Utilities
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.7.0",
+    "python-dotenv>=1.0.0",
+    "structlog>=24.4.0",
+    "tenacity>=9.0.0",
+    
+    # Audio processing
+    "numpy>=2.2.0",
+    "soundfile>=0.13.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.8.0",
+    "mypy>=1.14.0",
+]
+
+[project.scripts]
+leadmate-agent = "src.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*", "config*"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
