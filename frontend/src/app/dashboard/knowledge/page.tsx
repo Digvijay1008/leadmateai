@@ -212,7 +212,7 @@ function UploadModal({ onClose }: { onClose: () => void }) {
               <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Title *</label>
               <input
                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                placeholder="e.g. Property SOPs 2024"
+                placeholder="e.g. Product FAQ 2024"
                 value={form.title}
                 disabled={isPending}
                 onChange={(e) => setForm(f => ({ ...f, title: e.target.value }))}
@@ -228,7 +228,7 @@ function UploadModal({ onClose }: { onClose: () => void }) {
               >
                 <option value="pdf">PDF</option>
                 <option value="csv">CSV / Spreadsheet</option>
-                <option value="brochure">Brochure</option>
+                <option value="brochure">Brochure / Catalog</option>
                 <option value="sop">SOP / Policy</option>
                 <option value="faq">FAQ</option>
                 <option value="text">Plain Text</option>
@@ -325,7 +325,7 @@ export default function KnowledgePage() {
             Knowledge Base
           </h1>
           <p className="text-sm font-medium text-slate-500 mt-1">
-            Train your AI with SOPs, guidelines, and brokerage info.
+            Train your AI with documents, SOPs, FAQs, and product knowledge.
           </p>
         </div>
         <button
@@ -343,7 +343,7 @@ export default function KnowledgePage() {
             { label: 'Total Docs', value: stats.total_documents, icon: 'folder' },
             { label: 'Ready', value: stats.ready_documents, icon: 'check_circle', color: 'text-emerald-500' },
             { label: 'Processing', value: stats.processing_documents, icon: 'sync', color: 'text-amber-500' },
-            { label: 'Total Chunks', value: stats.total_chunks.toLocaleString(), icon: 'data_array' },
+            { label: 'Total Chunks', value: (stats?.total_chunks ?? 0).toLocaleString(), icon: 'data_array' },
           ].map(({ label, value, icon, color }) => (
             <div key={label} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex items-center gap-3 shadow-sm">
               <span className={`material-symbols-outlined ${color ?? 'text-primary'}`}>{icon}</span>
@@ -373,7 +373,7 @@ export default function KnowledgePage() {
             </div>
             <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Knowledge Base Empty</h3>
             <p className="text-slate-500 max-w-md mx-auto mb-8 text-sm">
-              Upload PDF, DOCX, or text files to train your virtual agents on compliance standards or brokerage policies.
+              Upload PDF, text, or paste content to train your AI agent on business policies, product info, and FAQs.
             </p>
             <div
               className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-8 max-w-sm w-full bg-slate-50/50 dark:bg-slate-800/50 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"

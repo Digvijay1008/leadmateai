@@ -1,6 +1,6 @@
 import { parseSessionIdFromRoomName } from '../../shared/index.js';
 import { incrementMetric } from '../../shared/index.js';
-import { computeDurationSeconds } from '../../domain/realestate/services/session-duration.service.js';
+import { computeDurationSeconds } from '../../domain/crm/services/session-duration.service.js';
 import {
     findSessionForRoomFinished,
     markPendingSessionCancelled,
@@ -8,9 +8,9 @@ import {
     persistWebhookDurationAudit,
     updateSessionStatus,
     type FinishedRoomSessionRow,
-} from '../../domain/realestate/repositories/webhook-session.repository.js';
-import { settleSessionHold, releaseSessionHold } from '../../domain/realestate/services/wallet.service.js';
-import { startSession } from '../../domain/realestate/services/session.service.js';
+} from '../../domain/crm/repositories/webhook-session.repository.js';
+import { settleSessionHold, releaseSessionHold } from '../../domain/crm/services/wallet.service.js';
+import { startSession } from '../../domain/crm/services/session.service.js';
 import { queryOne } from '../db/client.js';
 
 export async function processLiveKitWebhookEvent(event: any): Promise<void> {

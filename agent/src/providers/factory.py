@@ -1,10 +1,10 @@
 """
 Provider factory for the production Leadmate stack.
 
-Supported providers are intentionally locked to:
-- STT: deepgram
-- LLM: groq, openai
-- TTS: deepgram, elevenlabs, sarvam
+Supported providers:
+- STT: deepgram, openai, sarvam
+- LLM: openai, anthropic, google, groq
+- TTS: deepgram, elevenlabs, sarvam, openai, cartesia
 """
 
 import os
@@ -20,9 +20,9 @@ from src.core.utils import get_logger
 
 logger = get_logger("provider_factory")
 
-SUPPORTED_STT = ["deepgram"]
-SUPPORTED_LLM = ["groq", "openai"]
-SUPPORTED_TTS = ["deepgram", "elevenlabs", "sarvam"]
+SUPPORTED_STT = ["deepgram", "openai", "sarvam"]
+SUPPORTED_LLM = ["openai", "anthropic", "google", "groq"]
+SUPPORTED_TTS = ["deepgram", "elevenlabs", "sarvam", "openai", "cartesia"]
 
 
 class UnsupportedProviderError(ValueError):
@@ -39,56 +39,144 @@ class UnsupportedProviderError(ValueError):
         )
 
 
+# ---------------------------------------------------------------------------
+# STT
+# ---------------------------------------------------------------------------
+
 def create_stt(config: STTConfig):
-    provider = config.provider
+    provider = config.provider.lower()
+    language = config.language or "en-US"
+    # Deepgram uses 2-letter language code
+    lang_short = language[:2] if provider == "deepgram" else language
+
+    logger.info(
+        "stt_init",
+        provider=provider,
+        model=config.model,
+        language=language,
+    )
 
     if provider == "deepgram":
         return lk_deepgram.STT(
             model=config.model or "nova-3",
-            language=config.language[:2] if config.language else "en",
-            api_key=os.environ.get("DEEPGRAM_API_KEY"),
+            language=lang_short,
+            api_key=os.environ.get("DEEPGRAM_API_KEY") or "",
+        )
+
+    if provider == "openai":
+        return lk_openai.STT(
+            model=config.model or "whisper-1",
+            api_key=os.environ.get("OPENAI_API_KEY") or "",
+        )
+
+    if provider == "sarvam":
+        return lk_sarvam.STT(
+            api_key=os.environ.get("SARVAM_API_KEY") or "",
         )
 
     raise UnsupportedProviderError("stt", provider)
 
 
-def create_llm(config: LLMConfig):
-    provider = config.provider
+# ---------------------------------------------------------------------------
+# LLM
+# ---------------------------------------------------------------------------
 
-    if provider == "groq":
-        return lk_groq.LLM(
-            model=config.model or "llama-3.3-70b-versatile",
-            temperature=config.temperature,
-            api_key=os.environ.get("GROQ_API_KEY"),
-        )
+def create_llm(config: LLMConfig):
+    provider = config.provider.lower()
+
+    logger.info(
+        "llm_init",
+        provider=provider,
+        model=config.model,
+        temperature=config.temperature,
+    )
 
     if provider == "openai":
         return lk_openai.LLM(
             model=config.model or "gpt-4o-mini",
             temperature=config.temperature,
-            api_key=os.environ.get("OPENAI_API_KEY"),
+            api_key=os.environ.get("OPENAI_API_KEY") or "",
         )
+
+    if provider == "groq":
+        return lk_groq.LLM(
+            model=config.model or "llama-3.3-70b-versatile",
+            temperature=config.temperature,
+            api_key=os.environ.get("GROQ_API_KEY") or "",
+        )
+
+    if provider == "anthropic":
+        try:
+            from livekit.plugins import anthropic as lk_anthropic
+            return lk_anthropic.LLM(
+                model=config.model or "claude-3-5-sonnet-20241022",
+                api_key=os.environ.get("ANTHROPIC_API_KEY") or "",
+            )
+        except ImportError:
+            logger.warning(
+                "anthropic_plugin_missing",
+                fallback="openai/gpt-4o-mini",
+                hint="Install livekit-plugins-anthropic to use Anthropic models",
+            )
+            return lk_openai.LLM(
+                model="gpt-4o-mini",
+                temperature=config.temperature,
+                api_key=os.environ.get("OPENAI_API_KEY") or "",
+            )
+
+    if provider == "google":
+        try:
+            from livekit.plugins import google as lk_google
+            return lk_google.LLM(
+                model=config.model or "gemini-1.5-flash",
+                api_key=os.environ.get("GOOGLE_API_KEY") or "",
+            )
+        except ImportError:
+            logger.warning(
+                "google_plugin_missing",
+                fallback="openai/gpt-4o-mini",
+                hint="Install livekit-plugins-google to use Google models",
+            )
+            return lk_openai.LLM(
+                model="gpt-4o-mini",
+                temperature=config.temperature,
+                api_key=os.environ.get("OPENAI_API_KEY") or "",
+            )
 
     raise UnsupportedProviderError("llm", provider)
 
 
+# ---------------------------------------------------------------------------
+# TTS
+# ---------------------------------------------------------------------------
+
 def create_tts(config: TTSConfig):
-    provider = config.provider
+    provider = config.provider.lower()
+
+    # speaking_rate is attached to config if present (new manifest field)
+    speaking_rate = getattr(config, "speaking_rate", 1.0) or 1.0
+
+    logger.info(
+        "tts_init",
+        provider=provider,
+        model=config.model,
+        voice_id=config.voice_id,
+        speaking_rate=speaking_rate,
+    )
 
     if provider == "deepgram":
-        # aura-2-thalia-en: lowest-latency Deepgram streaming model.
-        # Streams audio chunks immediately — don't wait for full sentence.
+        # Deepgram Aura-2: voice_id IS the model name
+        model = config.voice_id or config.model or "aura-2-thalia-en"
         return lk_deepgram.TTS(
-            model=config.model or "aura-2-thalia-en",
+            model=model,
             api_key=os.environ.get("DEEPGRAM_API_KEY"),
         )
 
     if provider == "elevenlabs":
-        # eleven_turbo_v2_5: same cost tier as v2, ~30% faster TTFA.
         return lk_elevenlabs.TTS(
             model=config.model or "eleven_turbo_v2_5",
             voice_id=config.voice_id,
-            api_key=os.environ.get("ELEVENLABS_API_KEY"),
+            api_key=os.environ.get("ELEVENLABS_API_KEY") or "",
         )
 
     if provider == "sarvam":
@@ -96,11 +184,43 @@ def create_tts(config: TTSConfig):
             target_language_code="en-IN",
             speaker=config.voice_id or "priya",
             model=config.model or "bulbul:v3",
-            api_key=os.environ.get("SARVAM_API_KEY"),
+            api_key=os.environ.get("SARVAM_API_KEY") or "",
         )
+
+    if provider == "openai":
+        return lk_openai.TTS(
+            model=config.model or "tts-1",
+            voice=config.voice_id or "nova",
+            api_key=os.environ.get("OPENAI_API_KEY") or "",
+            speed=speaking_rate,
+        )
+
+    if provider == "cartesia":
+        try:
+            from livekit.plugins import cartesia as lk_cartesia
+            return lk_cartesia.TTS(
+                model=config.model or "sonic-english",
+                voice=config.voice_id,
+                api_key=os.environ.get("CARTESIA_API_KEY") or "",
+                speed=speaking_rate,
+            )
+        except ImportError:
+            logger.warning(
+                "cartesia_plugin_missing",
+                fallback="deepgram/aura-2-thalia-en",
+                hint="Install livekit-plugins-cartesia to use Cartesia voices",
+            )
+            return lk_deepgram.TTS(
+                model="aura-2-thalia-en",
+                api_key=os.environ.get("DEEPGRAM_API_KEY") or "",
+            )
 
     raise UnsupportedProviderError("tts", provider)
 
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
 
 def log_provider_config(
     stt_config: STTConfig,

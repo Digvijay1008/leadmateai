@@ -99,13 +99,17 @@ class SessionReporter:
         """
         url = f"{self.base_url}/api/v1/voice/sessions/{self.session_id}/end"
         end_reason = _map_termination_reason_to_end_reason(termination_reason)
+        
+        # Use strictly UTC 'Z' format for Zod .datetime() compatibility
+        reported_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        
         body = {
             "session_id": self.session_id,
-            "duration_seconds": duration_seconds,
+            "duration_seconds": max(0, int(duration_seconds)),
             "transcript": transcript,
             "end_reason": end_reason,
             "termination_reason": termination_reason,
-            "agent_reported_at": datetime.now(timezone.utc).isoformat(),
+            "agent_reported_at": reported_at,
         }
 
         success = await self._post_with_retry(url, body)
@@ -134,18 +138,25 @@ class SessionReporter:
                     response = await client.post(
                         url, json=body, headers=self._headers()
                     )
+                    if response.status_code >= 400:
+                        logger.warning(
+                            "backend_call_failed",
+                            status=response.status_code,
+                            body=response.text[:500],
+                            url=url,
+                            session_id=self.session_id,
+                        )
                     response.raise_for_status()
                     return True
 
             except Exception as e:
                 wait = 2 ** attempt  # 1s, 2s, 4s
                 logger.warning(
-                    "backend_call_failed",
+                    "backend_retry_log",
                     attempt=f"{attempt + 1}/{max_retries}",
                     url=url,
                     error=str(e),
                     session_id=self.session_id,
-                    tenant_id=self.tenant_id,
                     retry_in_seconds=wait,
                 )
                 if attempt < max_retries - 1:

@@ -45,17 +45,19 @@ export function FloatingBubbleButton({
   };
 
   const getPulseAnimation = () => {
-    if (!isActive) return null;
+    if (!isActive || audioLevel < 0.05) return null;
 
-    const scale = 1 + audioLevel * 0.3;
     return (
-      <div
-        className="absolute inset-0 rounded-full animate-ping opacity-75"
-        style={{
-          backgroundColor: primaryColor,
-          transform: `scale(${scale})`,
-        }}
-      />
+      <>
+        <div
+          className="absolute inset-0 rounded-full animate-ping opacity-20"
+          style={{ backgroundColor: primaryColor }}
+        />
+        <div
+          className="absolute inset-[-8px] rounded-full opacity-10 animate-pulse"
+          style={{ backgroundColor: primaryColor, transform: `scale(${1 + audioLevel * 0.5})` }}
+        />
+      </>
     );
   };
 
@@ -65,22 +67,30 @@ export function FloatingBubbleButton({
       disabled={isConnecting}
       className={`
         relative w-16 h-16 rounded-full flex items-center justify-center
-        transition-all duration-300 shadow-lg
+        transition-all duration-500 shadow-2xl hover:scale-110 active:scale-95
         ${isActive 
-          ? 'bg-emerald-500 hover:bg-emerald-600' 
+          ? 'bg-emerald-500 hover:bg-emerald-600 ring-4 ring-emerald-500/20' 
           : isError 
-            ? 'bg-red-500 hover:bg-red-600'
-            : 'bg-primary hover:scale-110'
+            ? 'bg-red-500 hover:bg-red-600 ring-4 ring-red-500/20'
+            : 'hover:shadow-indigo-500/25'
         }
         ${isConnecting ? 'opacity-80 cursor-wait' : 'cursor-pointer'}
       `}
-      style={{ backgroundColor: isActive ? undefined : primaryColor }}
+      style={{ 
+        backgroundColor: isActive ? undefined : isError ? undefined : primaryColor,
+        boxShadow: !isActive && !isError ? `0 10px 25px -5px ${primaryColor}40` : undefined
+      }}
     >
       {getPulseAnimation()}
-      <div className="text-white z-10">{getButtonContent()}</div>
+      <div className="text-white z-10 scale-110">
+        {getButtonContent()}
+      </div>
       
       {isActive && (
-        <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full border-2 border-white animate-pulse" />
+        <div className="absolute -top-1 -right-1 flex h-4 w-4">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500 border-2 border-white"></span>
+        </div>
       )}
     </button>
   );

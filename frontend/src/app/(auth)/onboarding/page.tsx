@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 export default function OnboardingWizard() {
   const router = useRouter();
   const [step, setStep] = useState(1);
-  const totalSteps = 4;
+  const totalSteps = 3;
   
   const [formData, setFormData] = useState({
     workspaceName: '',
@@ -28,9 +28,9 @@ export default function OnboardingWizard() {
       <header className="p-8 flex justify-between items-center w-full z-10 max-w-5xl mx-auto">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white shadow-md">
-            <span className="material-symbols-outlined text-sm">real_estate_agent</span>
+            <span className="material-symbols-outlined text-sm">support_agent</span>
           </div>
-          <span className="font-headline font-bold text-xl tracking-tight">LeadMate</span>
+          <span className="font-headline font-bold text-xl tracking-tight">Voice AI</span>
         </div>
         <button onClick={handleComplete} className="text-sm font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white">Skip for now</button>
       </header>
@@ -94,7 +94,7 @@ export default function OnboardingWizard() {
             {step === 3 && (
               <div className="flex-grow animate-in fade-in slide-in-from-right-4 duration-500">
                 <h1 className="text-3xl font-black font-headline mb-2 tracking-tight">Upload Knowledge Base</h1>
-                <p className="text-slate-500 text-sm mb-8 font-medium">Train your agent on your agency's standard operating procedures.</p>
+                <p className="text-slate-500 text-sm mb-8 font-medium">Train your agent on your business knowledge and standard operating procedures.</p>
                 <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-10 flex flex-col items-center justify-center text-center bg-slate-50/50 dark:bg-slate-800/50">
                   <span className="material-symbols-outlined text-4xl text-primary mb-4">upload_file</span>
                   <p className="font-bold text-slate-900 dark:text-white mb-1">Drag & drop your documents</p>
@@ -104,19 +104,7 @@ export default function OnboardingWizard() {
               </div>
             )}
 
-            {/* Step 4: First Property */}
-            {step === 4 && (
-              <div className="flex-grow animate-in fade-in slide-in-from-right-4 duration-500">
-                <h1 className="text-3xl font-black font-headline mb-2 tracking-tight">Add your first Listing</h1>
-                <p className="text-slate-500 text-sm mb-8 font-medium">Let's give your agent a property to sell.</p>
-                <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-10 flex flex-col items-center justify-center text-center bg-slate-50/50 dark:bg-slate-800/50">
-                  <span className="material-symbols-outlined text-4xl text-emerald-500 mb-4">add_home</span>
-                  <p className="font-bold text-slate-900 dark:text-white mb-1">Upload property details</p>
-                  <p className="text-sm text-slate-500 mb-6">Upload an MLS sheet or property brochure</p>
-                  <button className="px-6 py-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl font-bold shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">Browse Listings</button>
-                </div>
-              </div>
-            )}
+
 
             {/* Footer Navigation */}
             <div className="mt-10 pt-6 border-t border-slate-100 dark:border-slate-800 flex justify-between">

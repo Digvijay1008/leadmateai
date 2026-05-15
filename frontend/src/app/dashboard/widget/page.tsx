@@ -1,186 +1,308 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { VoiceWidget } from '@/components/widget/VoiceWidget';
-import { PageHeader } from '@/components/ui/status-badge';
+import { WidgetConfig, WidgetTheme, WidgetPosition, DEFAULT_WIDGET_CONFIG } from '@/types/widget';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { WidgetPreview } from '@/components/widget/WidgetPreview';
+import { WidgetSettings } from '@/components/widget/WidgetSettings';
+import { WidgetEmbedCode } from '@/components/widget/WidgetEmbedCode';
+import { useAgentConfigQuery } from '@/features/telephony/hooks';
 import { authService } from '@/services/auth.service';
 
-export default function WidgetPage() {
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  const [position, setPosition] = useState<'bottom-right' | 'bottom-left' | 'top-right' | 'top-left'>('bottom-right');
-  const [widgetKey, setWidgetKey] = useState('wk_123abc456def');
-  const [welcomeMessage, setWelcomeMessage] = useState('Hi there! How can I help you today?');
-  const [copied, setCopied] = useState(false);
+export default function WidgetBuilderPage() {
+  const [config, setConfig] = useState<Partial<WidgetConfig>>({
+    ...DEFAULT_WIDGET_CONFIG,
+    agentId: '',
+    agentName: '',
+    isEnabled: true,
+    allowedDomains: [],
+  });
+  const [activeTab, setActiveTab] = useState('preview');
   const [tenantId, setTenantId] = useState<string>('');
 
+  // Fetch the real agent config from the API
+  const { data: agentConfig, isLoading: agentsLoading } = useAgentConfigQuery();
+
+  // Derive an agent list from the API response
+  const agents = agentConfig
+    ? [{ id: 'agent-default', name: agentConfig.greeting_message ? 'Your AI Agent' : 'AI Agent', status: 'active' }]
+    : [];
+
+  // Load tenant ID and initialize config
   useEffect(() => {
-    authService.getCurrentUser().then((res: any) => {
-      if (res && res.tenant && res.tenant.id) {
-        setTenantId(res.tenant.id);
-        if (res.tenant.widgetKey) setWidgetKey(res.tenant.widgetKey);
-      } else if (res && res.id) {
-        setTenantId(res.id);
-        if (res.widgetKey) setWidgetKey(res.widgetKey);
+    const loadUser = async () => {
+      try {
+        const res = await authService.getCurrentUser() as any;
+        const tenant = res?.tenant ?? res;
+        if (tenant?.id) {
+          setTenantId(tenant.id);
+          setConfig((prev) => ({ 
+            ...prev, 
+            tenantId: tenant.id,
+            widgetKey: tenant.id // Often we use tenantId as the initial widget key
+          }));
+        }
+      } catch (err) {
+        console.error('Failed to load user for widget builder:', err);
       }
-    }).catch(console.error);
+    };
+    loadUser();
   }, []);
 
-  const embedCode = `<script src="https://cdn.leadmate.ai/widget/v1/widget.js"
-        data-widget-key="${widgetKey}"
-        data-theme="${theme}"
-        data-position="${position}"
-        data-welcome-message="${welcomeMessage}">
-</script>`;
+  // Auto-select the only agent when loaded
+  useEffect(() => {
+    if (agents.length === 1 && !config.agentId) {
+      setConfig((prev) => ({ ...prev, agentId: agents[0].id, agentName: agents[0].name }));
+    }
+  }, [agents.length]);
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(embedCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  const updateConfig = (updates: Partial<WidgetConfig>) =>
+    setConfig((prev) => ({ ...prev, ...updates }));
+
+  const updateTheme = (updates: Partial<WidgetTheme>) =>
+    setConfig((prev) => ({
+      ...prev,
+      theme: { ...(prev.theme ?? DEFAULT_WIDGET_CONFIG.theme), ...updates },
+    }));
+
+  const updatePosition = (updates: Partial<WidgetPosition>) =>
+    setConfig((prev) => ({
+      ...prev,
+      position: { ...(prev.position ?? DEFAULT_WIDGET_CONFIG.position), ...updates },
+    }));
 
   return (
-    <div className="h-full flex flex-col max-w-6xl mx-auto gap-6">
-      <header className="shrink-0">
-        <h1 className="text-3xl font-black font-headline text-slate-900 dark:text-white tracking-tight">Embeddable Widget</h1>
-        <p className="text-sm font-medium text-slate-500 mt-1">Configure and integrate the LeadMate Voice SDK into your website.</p>
-      </header>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 items-start">
-        {/* Configuration Panel */}
-        <div className="lg:col-span-5 bg-white dark:bg-slate-900 shadow-sm border border-slate-200 dark:border-slate-800 rounded-2xl p-6 flex flex-col gap-6">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white">Configuration</h2>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Widget Key</label>
-              <input 
-                type="text" 
-                value={widgetKey}
-                onChange={(e) => setWidgetKey(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-mono"
-                placeholder="e.g. wk_123abc"
-              />
-              <p className="text-[10px] text-slate-400 mt-1">The public identifier mapped to your agent.</p>
-            </div>
-            
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Welcome Message</label>
-              <input 
-                type="text" 
-                value={welcomeMessage}
-                onChange={(e) => setWelcomeMessage(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-                placeholder="Message shown before starting the call"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Theme</label>
-              <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
-                <button 
-                  onClick={() => setTheme('light')}
-                  className={`flex-1 py-1.5 text-sm font-semibold rounded-lg transition-all ${theme === 'light' ? 'bg-white dark:bg-slate-800 text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-                >
-                  Light
-                </button>
-                <button 
-                  onClick={() => setTheme('dark')}
-                  className={`flex-1 py-1.5 text-sm font-semibold rounded-lg transition-all ${theme === 'dark' ? 'bg-white dark:bg-slate-800 text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-                >
-                  Dark
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Position</label>
-              <select 
-                value={position}
-                onChange={(e: any) => setPosition(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-              >
-                <option value="bottom-right">Bottom Right</option>
-                <option value="bottom-left">Bottom Left</option>
-                <option value="top-right">Top Right</option>
-                <option value="top-left">Top Left</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="mt-4 pt-6 border-t border-slate-200 dark:border-slate-800">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-2">Embed Code</h3>
-            <p className="text-xs text-slate-500 mb-4">Copy and paste this snippet just before the closing &lt;/body&gt; tag of your website.</p>
-            
-            <div className="relative group">
-              <pre className="bg-slate-950 text-slate-300 p-4 rounded-xl text-xs overflow-x-auto border border-slate-800">
-                <code>{embedCode}</code>
-              </pre>
-              <button 
-                onClick={copyToClipboard}
-                className="absolute top-3 right-3 p-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-all backdrop-blur-sm"
-              >
-                <span className="material-symbols-outlined text-sm">{copied ? 'check' : 'content_copy'}</span>
-              </button>
-            </div>
-          </div>
+    <div className="p-8 max-w-7xl mx-auto">
+      {/* Page Header */}
+      <div className="flex justify-between items-start mb-8">
+        <div>
+          <h1 className="text-3xl font-black tracking-tighter text-slate-900 dark:text-white font-headline">
+            Voice Widget Builder
+          </h1>
+          <p className="text-slate-500 font-medium mt-1">
+            Customize and embed your AI voice assistant on any website
+          </p>
         </div>
-
-        {/* Live Preview */}
-        <div className="lg:col-span-7 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl relative overflow-hidden flex flex-col min-h-[600px] h-full shadow-inner">
-          <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm flex justify-between items-center">
-            <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              Live Preview
-            </h2>
-            <div className="flex gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-red-400"></div>
-              <div className="w-3 h-3 rounded-full bg-amber-400"></div>
-              <div className="w-3 h-3 rounded-full bg-emerald-400"></div>
-            </div>
-          </div>
-          
-          <div className="flex-1 relative w-full h-full p-8 flex items-center justify-center">
-            {/* Dummy Website Background */}
-            <div className="w-full h-full border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-center opacity-50 relative">
-              <p className="text-slate-400 dark:text-slate-500 font-headline font-bold text-xl">Your Website Content</p>
-              
-              {/* The Actual Widget Component in Absolute Positioning relative to this container */}
-              <div className="absolute inset-4 pointer-events-none">
-                <div className="pointer-events-auto w-full h-full relative">
-                  {tenantId ? (
-                    <VoiceWidget 
-                      tenantId={tenantId}
-                      embedded={false}
-                      previewMode={true}
-                      config={{
-                        agentName: 'LeadMate Assistant',
-                        welcomeMessage: welcomeMessage,
-                        theme: { 
-                          primaryColor: '#6366f1', 
-                          backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff', 
-                          textColor: theme === 'dark' ? '#f8fafc' : '#1e293b', 
-                          borderRadius: 24, 
-                          accentStyle: 'gradient' 
-                        },
-                        position: {
-                          corner: position,
-                          offsetX: 0,
-                          offsetY: 0,
-                          size: 'medium'
-                        }
-                      }}
-                    />
-                  ) : (
-                    <div className="flex items-center justify-center h-full w-full">
-                      <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+        <div className="flex items-center gap-3">
+          <Badge
+            variant={config.isEnabled ? 'default' : 'secondary'}
+            className={config.isEnabled ? 'bg-emerald-500' : ''}
+          >
+            {config.isEnabled ? 'Widget Active' : 'Widget Disabled'}
+          </Badge>
+          <Button
+            onClick={() => updateConfig({ isEnabled: !config.isEnabled })}
+            className={config.isEnabled ? 'bg-red-500 hover:bg-red-600' : 'bg-emerald-500 hover:bg-emerald-600'}
+          >
+            {config.isEnabled ? 'Disable Widget' : 'Enable Widget'}
+          </Button>
         </div>
       </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="bg-slate-100 dark:bg-slate-800 p-1">
+          <TabsTrigger value="preview">Preview</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
+          <TabsTrigger value="appearance">Appearance</TabsTrigger>
+          <TabsTrigger value="install">Install</TabsTrigger>
+        </TabsList>
+
+        {/* Preview Tab */}
+        <TabsContent value="preview" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <WidgetPreview config={config} onPositionChange={updatePosition} />
+
+            {/* Quick Settings */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg font-bold">Quick Settings</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Agent picker in preview */}
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                    Select Agent
+                  </label>
+                  {agentsLoading ? (
+                    <p className="text-sm text-slate-400 animate-pulse">Loading agents...</p>
+                  ) : (
+                    <select
+                      value={config.agentId ?? ''}
+                      onChange={(e) => updateConfig({ agentId: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-medium"
+                    >
+                      <option value="">Choose an agent...</option>
+                      {agents.map((agent) => (
+                        <option key={agent.id} value={agent.id}>
+                          {agent.name} ({agent.status})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                {/* Widget size */}
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                    Widget Size
+                  </label>
+                  <div className="flex gap-2">
+                    {(['small', 'medium', 'large'] as const).map((size) => (
+                      <button
+                        key={size}
+                        onClick={() => updatePosition({ size })}
+                        className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium capitalize transition-all ${
+                          config.position?.size === size
+                            ? 'bg-primary text-white'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Settings Tab */}
+        <TabsContent value="settings" className="space-y-6">
+          <WidgetSettings
+            config={config}
+            agents={agents}
+            agentsLoading={agentsLoading}
+            onConfigChange={updateConfig}
+          />
+        </TabsContent>
+
+        {/* Appearance Tab */}
+        <TabsContent value="appearance" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg font-bold">Colors</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                    Primary Color
+                  </label>
+                  <div className="flex gap-3">
+                    <input
+                      type="color"
+                      value={config.theme?.primaryColor ?? '#6366f1'}
+                      onChange={(e) => updateTheme({ primaryColor: e.target.value })}
+                      className="w-12 h-12 rounded-lg cursor-pointer border-0"
+                    />
+                    <Input
+                      value={config.theme?.primaryColor ?? '#6366f1'}
+                      onChange={(e) => updateTheme({ primaryColor: e.target.value })}
+                      className="flex-1 font-mono"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                    Background Color
+                  </label>
+                  <div className="flex gap-3">
+                    <input
+                      type="color"
+                      value={config.theme?.backgroundColor ?? '#ffffff'}
+                      onChange={(e) => updateTheme({ backgroundColor: e.target.value })}
+                      className="w-12 h-12 rounded-lg cursor-pointer border-0"
+                    />
+                    <Input
+                      value={config.theme?.backgroundColor ?? '#ffffff'}
+                      onChange={(e) => updateTheme({ backgroundColor: e.target.value })}
+                      className="flex-1 font-mono"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                    Border Radius — {config.theme?.borderRadius ?? 24}px
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="48"
+                    value={config.theme?.borderRadius ?? 24}
+                    onChange={(e) => updateTheme({ borderRadius: parseInt(e.target.value) })}
+                    className="w-full"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg font-bold">Style</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                    Accent Style
+                  </label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {(['gradient', 'solid', 'glass'] as const).map((style) => (
+                      <button
+                        key={style}
+                        onClick={() => updateTheme({ accentStyle: style })}
+                        className={`p-4 rounded-xl text-sm font-medium capitalize transition-all ${
+                          config.theme?.accentStyle === style
+                            ? 'bg-primary text-white'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                        }`}
+                      >
+                        {style}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Mini preview */}
+                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl">
+                  <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-4">Preview</h4>
+                  <div className="flex gap-4 justify-center">
+                    <div
+                      className="w-16 h-16 flex items-center justify-center text-white font-bold"
+                      style={{
+                        backgroundColor: config.theme?.primaryColor ?? '#6366f1',
+                        borderRadius: `${config.theme?.borderRadius ?? 24}px`,
+                      }}
+                    >
+                      <span className="material-symbols-outlined">call</span>
+                    </div>
+                    <div
+                      className="p-4 shadow-lg"
+                      style={{
+                        backgroundColor: config.theme?.backgroundColor ?? '#ffffff',
+                        borderRadius: config.theme?.borderRadius ?? 24,
+                      }}
+                    >
+                      <p className="text-sm font-bold" style={{ color: config.theme?.textColor ?? '#1e293b' }}>
+                        Widget Panel
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Install Tab */}
+        <TabsContent value="install" className="space-y-6">
+          <WidgetEmbedCode config={config} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

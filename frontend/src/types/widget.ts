@@ -68,6 +68,8 @@ export interface ConnectionState {
   participantCount: number;
   audioEnabled: boolean;
   networkQuality: 'excellent' | 'good' | 'poor' | 'unknown';
+  isAgentSpeaking?: boolean;
+  agentAudioLevel?: number;
 }
 
 export interface LiveKitRoomEvents {

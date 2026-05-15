@@ -69,7 +69,7 @@ export default function CampaignDetailsPage() {
 
       try {
         await campaignsApi.uploadLeads(campaign.id, leads);
-        alert(`Successfully queued ${leads.length} leads for dialing.`);
+        alert(`Successfully queued ${leads.length} contacts for dialing.`);
         fetchCampaign(campaign.id);
       } catch (error) {
         console.error('Failed to upload leads', error);
@@ -144,7 +144,7 @@ export default function CampaignDetailsPage() {
             ) : (
               <span className="material-symbols-outlined text-sm">upload</span>
             )}
-            {uploading ? 'Processing CSS...' : 'Upload CSV Leads'}
+            {uploading ? 'Processing CSV...' : 'Upload CSV Contacts'}
           </button>
         </div>
       </header>
@@ -154,7 +154,7 @@ export default function CampaignDetailsPage() {
           <div className="w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-primary mb-4">
             <span className="material-symbols-outlined">groups</span>
           </div>
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Total Leads</p>
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Total Contacts</p>
           <p className="text-3xl font-black font-headline text-slate-800 dark:text-white">{campaign.total_leads}</p>
         </div>
 
@@ -196,7 +196,7 @@ export default function CampaignDetailsPage() {
           </div>
           <h3 className="text-lg font-bold font-headline text-slate-800 dark:text-gray-100 mb-2">Campaign Queue Running</h3>
           <p className="text-sm font-medium text-slate-500">
-            Once you upload your CSV of leads, the backend distributed background job scheduler will pick them up immediately in batches of 5 and dial via your SIP trunk. You can refresh this page to watch the metrics increment dynamically.
+            Once you upload your CSV of contacts, the backend distributed background job scheduler will pick them up immediately in batches of 5 and dial via your SIP trunk. You can refresh this page to watch the metrics increment dynamically.
           </p>
         </div>
       </div>

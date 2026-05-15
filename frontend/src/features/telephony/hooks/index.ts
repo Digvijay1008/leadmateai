@@ -11,6 +11,8 @@ export const telephonyKeys = {
   voiceConfig: () => [...telephonyKeys.all, 'voice-config'] as const,
   livekitSettings: () => [...telephonyKeys.all, 'livekit-settings'] as const,
   sipTrunks: () => [...telephonyKeys.all, 'sip-trunks'] as const,
+  voices: () => [...telephonyKeys.all, 'voices'] as const,
+  llms: () => [...telephonyKeys.all, 'llms'] as const,
 };
 
 // ─── Integrations ────────────────────────────────────────────────────────────
@@ -19,7 +21,7 @@ export function useIntegrationsQuery() {
   return useQuery({
     queryKey: telephonyKeys.integrations(),
     queryFn: () => telephonyApi.getIntegrations(),
-    staleTime: 60 * 1000, // 1 minute
+    staleTime: 60 * 1000,
   });
 }
 
@@ -40,6 +42,17 @@ export function usePhoneNumbersQuery() {
     queryKey: telephonyKeys.phoneNumbers(),
     queryFn: () => telephonyApi.getPhoneNumbers(),
     staleTime: 60 * 1000,
+  });
+}
+
+export function useAddPhoneNumber() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { number: string; sip_trunk_id?: string; agent_id?: string }) =>
+      telephonyApi.addPhoneNumber(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: telephonyKeys.phoneNumbers() });
+    },
   });
 }
 
@@ -96,7 +109,7 @@ export function useAgentConfigQuery() {
   return useQuery({
     queryKey: telephonyKeys.voiceConfig(),
     queryFn: () => telephonyApi.getAgentConfig(),
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 2 * 60 * 1000,
   });
 }
 
@@ -107,6 +120,24 @@ export function useUpdateAgentConfig() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: telephonyKeys.voiceConfig() });
     },
+  });
+}
+
+// ─── Providers ────────────────────────────────────────────────────────────
+
+export function useVoicesQuery() {
+  return useQuery({
+    queryKey: telephonyKeys.voices(),
+    queryFn: () => telephonyApi.getVoices(),
+    staleTime: 10 * 60 * 1000, // 10 minutes — voices don't change often
+  });
+}
+
+export function useLLMsQuery() {
+  return useQuery({
+    queryKey: telephonyKeys.llms(),
+    queryFn: () => telephonyApi.getLLMs(),
+    staleTime: 10 * 60 * 1000,
   });
 }
 

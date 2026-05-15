@@ -27,6 +27,12 @@ export const telephonyApi = {
   getPhoneNumbers: () =>
     fetchApi<PhoneNumbersListResponse>('/v1/phone-numbers'),
 
+  addPhoneNumber: (data: { number: string; sip_trunk_id?: string; agent_id?: string }) =>
+    fetchApi<{ message: string; phone_number: PhoneNumber }>('/v1/phone-numbers', {
+      method: 'POST',
+      data,
+    }),
+
   assignPhoneNumber: (numberId: string, agentId: string) =>
     fetchApi<PhoneNumber>(`/v1/phone-numbers/${numberId}/assign`, {
       method: 'POST',
@@ -64,7 +70,33 @@ export const telephonyApi = {
       data,
     }),
 
+  // ─── Providers ─────────────────────────────────────────────────────────
+  getVoices: () =>
+    fetchApi<{ voices: VoiceOption[] }>('/v1/providers/voices').then(res => res.voices),
+
+  getLLMs: () =>
+    fetchApi<{ llms: LLMOption[] }>('/v1/providers/llms').then(res => res.llms),
+
   // ─── LiveKit Settings ──────────────────────────────────────────────────
   getLiveKitSettings: () =>
     fetchApi<LiveKitSettings>('/v1/livekit/settings'),
 };
+
+// ─── Provider Option Types ─────────────────────────────────────────────────
+
+export interface VoiceOption {
+  id: string;
+  name: string;
+  provider: string;
+  language: string;
+  accent: string;
+  gender: string;
+  preview_url: string;
+}
+
+export interface LLMOption {
+  id: string;
+  name: string;
+  provider: string;
+  context_window: number;
+}

@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../domain/realestate/repositories/webhook-session.repository.js', () => ({
+vi.mock('../../domain/crm/repositories/webhook-session.repository.js', () => ({
     findSessionForRoomFinished: vi.fn(),
     markPendingSessionCancelled: vi.fn(),
     markRecoveredSessionCompleted: vi.fn(),
     persistWebhookDurationAudit: vi.fn(),
 }));
 
-vi.mock('../../domain/realestate/services/wallet.service.js', () => ({
+vi.mock('../../domain/crm/services/wallet.service.js', () => ({
     settleSessionHold: vi.fn(),
     releaseSessionHold: vi.fn(),
 }));
@@ -18,7 +18,7 @@ describe('processLiveKitWebhookEvent', () => {
     });
 
     it('ignores non room_finished events', async () => {
-        const repo = await import('../../domain/realestate/repositories/webhook-session.repository.js');
+        const repo = await import('../../domain/crm/repositories/webhook-session.repository.js');
         const { processLiveKitWebhookEvent } = await import('./livekit-webhook.service.js');
 
         await processLiveKitWebhookEvent({ event: 'participant_joined', id: 'evt-1' });
@@ -26,7 +26,7 @@ describe('processLiveKitWebhookEvent', () => {
     });
 
     it('processes each room_finished invocation (route layer handles dedupe)', async () => {
-        const repo = await import('../../domain/realestate/repositories/webhook-session.repository.js');
+        const repo = await import('../../domain/crm/repositories/webhook-session.repository.js');
         const { processLiveKitWebhookEvent } = await import('./livekit-webhook.service.js');
 
         vi.mocked(repo.findSessionForRoomFinished).mockResolvedValue({

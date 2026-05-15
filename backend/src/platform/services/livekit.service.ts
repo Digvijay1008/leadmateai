@@ -5,7 +5,7 @@
  * Uses the official livekit-server-sdk.
  */
 
-import { AccessToken, RoomServiceClient, DataPacket_Kind } from 'livekit-server-sdk';
+import { AccessToken, RoomServiceClient, AgentDispatchClient, DataPacket_Kind } from 'livekit-server-sdk';
 import { config } from '../../core/index.js';
 import { generateId, generateCanonicalRoomName } from '../../shared/index.js';
 import { ValidationError } from '../../shared/index.js';
@@ -17,19 +17,12 @@ import type { AgentSessionManifest } from '../../shared/index.js';
 // ===========================================
 
 export interface LiveKitTokenOptions {
-    /** Session ID (used as room name) */
     sessionId: string;
-    /** Tenant ID for isolation */
     tenantId: string;
-    /** Participant identity */
     identity: string;
-    /** Participant name (display name) */
     name?: string;
-    /** Whether this is a user or agent */
     participantType: 'user' | 'agent';
-    /** Max duration in seconds (for metadata) */
     maxDurationSeconds: number;
-    /** Additional metadata to attach */
     metadata?: Record<string, unknown>;
 }
 
@@ -53,27 +46,30 @@ export interface RoomMetadata {
 // ===========================================
 
 let roomServiceClient: RoomServiceClient | null = null;
+let agentDispatchClient: AgentDispatchClient | null = null;
 
 function getRoomServiceClient(): RoomServiceClient {
     if (!roomServiceClient) {
         if (!config.livekit.url || !config.livekit.apiKey || !config.livekit.apiSecret) {
             throw new ValidationError('LiveKit configuration incomplete');
         }
-
-        // Convert WebSocket URL to HTTP for API
         const httpUrl = config.livekit.url
             .replace('wss://', 'https://')
             .replace('ws://', 'http://');
-
-        roomServiceClient = new RoomServiceClient(
-            httpUrl,
-            config.livekit.apiKey,
-            config.livekit.apiSecret
-        );
+        roomServiceClient = new RoomServiceClient(httpUrl, config.livekit.apiKey, config.livekit.apiSecret);
     }
     return roomServiceClient;
 }
 
+function getAgentServiceClient(): AgentDispatchClient {
+    if (!agentDispatchClient) {
+        const httpUrl = (config.livekit.url || 'https://localhost')
+            .replace('wss://', 'https://')
+            .replace('ws://', 'http://');
+        agentDispatchClient = new AgentDispatchClient(httpUrl, config.livekit.apiKey, config.livekit.apiSecret);
+    }
+    return agentDispatchClient;
+}
 // ===========================================
 // TOKEN GENERATION
 // ===========================================
@@ -104,7 +100,7 @@ export async function generateLiveKitToken(
         metadata,
     } = options;
 
-    const roomName = generateCanonicalRoomName(sessionId);
+    const roomName = generateCanonicalRoomName(sessionId, tenantId);
 
     // Token expires after max duration + 5 minute buffer
     const tokenTtlSeconds = maxDurationSeconds + 300;
@@ -207,7 +203,7 @@ export async function ensureRoomExists(
     tenantId: string,
     maxDurationSeconds: number
 ): Promise<{ roomName: string; created: boolean }> {
-    const roomName = generateCanonicalRoomName(sessionId);
+    const roomName = generateCanonicalRoomName(sessionId, tenantId);
     const client = getRoomServiceClient();
 
     // Build room metadata
@@ -231,7 +227,9 @@ export async function ensureRoomExists(
         await client.createRoom({
             name: roomName,
             emptyTimeout: 60,  // Close room 60s after last participant leaves
-            maxParticipants: 2,  // User + Agent only
+            // Outbound dashboard calls can have the browser user, the AI agent,
+            // and the SIP participant in the room at the same time.
+            maxParticipants: 4,
             metadata: JSON.stringify(roomMetadata),
         });
 
@@ -352,7 +350,7 @@ export async function dispatchAgentToRoom(
             maxDurationSeconds
         );
 
-        // Update room metadata with full manifest for agent
+        // Write full manifest into room metadata so the agent can read it
         const client = getRoomServiceClient();
         await client.updateRoomMetadata(
             roomName,
@@ -365,7 +363,23 @@ export async function dispatchAgentToRoom(
             })
         );
 
-        // Generate agent token
+        // CRITICAL: Explicitly dispatch the agent worker to this room.
+        // Without this call, the agent worker never receives a job and the
+        // call connects but the AI never joins â†’ 6-12s timeout â†’ disconnect.
+        const agentClient = getAgentServiceClient();
+        await agentClient.createDispatch(
+            roomName,
+            process.env.LIVEKIT_AGENT_NAME || 'leadmate-agent',
+            { metadata: JSON.stringify(manifest) }
+        );
+
+        console.log('[LiveKit] agent_dispatch_sent', {
+            room: roomName,
+            agent: config.livekit.agentName,
+            session_id: sessionId,
+        });
+
+        // Generate agent token (kept for web widget compatibility)
         const agentTokenResult = await generateAgentToken(
             sessionId,
             tenantId,

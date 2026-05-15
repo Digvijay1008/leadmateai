@@ -73,7 +73,7 @@ export default function AnalyticsPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-        <StatCard label="Total Leads" value={summary?.leads_this_month ?? 0} icon="group" color="text-indigo-500" bg="bg-indigo-50 dark:bg-indigo-900/30" />
+        <StatCard label="Total Contacts" value={summary?.leads_this_month ?? 0} icon="group" color="text-indigo-500" bg="bg-indigo-50 dark:bg-indigo-900/30" />
         <StatCard label="Sessions" value={totalSessions} icon="mic" color="text-emerald-500" bg="bg-emerald-50 dark:bg-emerald-900/30" />
         <StatCard label="Avg Duration" value={`${Math.round(avgDuration)}s`} icon="timer" color="text-amber-500" bg="bg-amber-50 dark:bg-amber-900/30" />
         <StatCard label="Completion Rate" value={`${completionRate}%`} icon="check_circle" color="text-teal-500" bg="bg-teal-50 dark:bg-teal-900/30" />

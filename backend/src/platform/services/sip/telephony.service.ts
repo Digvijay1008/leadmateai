@@ -17,7 +17,7 @@ import type { CreateSipParticipantOptions } from 'livekit-server-sdk';
 import { config } from '../../../core/index.js';
 import { queryOne } from '../../db/client.js';
 import { incrementMetric, parseSessionIdFromRoomName } from '../../../shared/index.js';
-import { endVoiceSession } from '../../../domain/realestate/services/session.service.js';
+import { endVoiceSession } from '../../../domain/crm/services/session.service.js';
 
 // ===========================================
 // TYPES
@@ -110,9 +110,23 @@ export async function dialOutbound(params: DialOutboundParams): Promise<{ sipPar
             opts.fromNumber = from;
         }
 
+        // VoiceLink tech prefix — DISABLED for debugging.
+        // The 45454 prefix was causing 480. Testing without it first.
+        // If bare E.164 also fails → issue is credentials or IP trust, not number format.
+        const dialNumber = to;  // Use raw E.164 (e.g. +919619810084)
+
+        console.log('[SIP] outbound_dial_attempt', {
+            livekit_trunk_id: trunk.livekit_trunk_id,
+            sip_host: trunk.sip_host,
+            provider: trunk.provider_name,
+            dial_number: dialNumber,
+            from_number: from,
+            room: roomName,
+        });
+
         const participant = await client.createSipParticipant(
             trunk.livekit_trunk_id,   // LiveKit trunk ID (ST_xxx)
-            to,                        // E.164 phone number — NOT SIP URI
+            dialNumber,               // Raw E.164 — testing without tech prefix
             roomName,
             opts
         );
@@ -172,7 +186,7 @@ export async function getTrunkForTenant(tenantId: string): Promise<SipTrunk | nu
     return queryOne<SipTrunk>(
         `SELECT * FROM tenant_sip_trunks
          WHERE tenant_id = $1 AND is_active = true
-         ORDER BY created_at ASC
+         ORDER BY created_at DESC
          LIMIT 1`,
         [tenantId]
     );

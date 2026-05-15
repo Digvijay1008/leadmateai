@@ -13,7 +13,7 @@ export function SipTrunkAddModal({ onClose }: Props) {
   const [sipHost, setSipHost] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [transport, setTransport] = useState('tcp');
+  const [transport, setTransport] = useState('udp');
   const [inboundNumber, setInboundNumber] = useState('');
 
   const [testSuccess, setTestSuccess] = useState<boolean | null>(null);
@@ -91,6 +91,7 @@ export function SipTrunkAddModal({ onClose }: Props) {
                 className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
               >
                 <option value="Generic">Generic SIP</option>
+                <option value="VoiceLink">VoiceLink</option>
                 <option value="Twilio">Twilio</option>
                 <option value="Telnyx">Telnyx</option>
                 <option value="Vonage">Vonage</option>
@@ -196,7 +197,7 @@ export function SipTrunkAddModal({ onClose }: Props) {
             </button>
             <button
               onClick={handleSave}
-              disabled={!name || !sipHost || createTrunk.isPending || testSuccess === false}
+              disabled={!name || !sipHost || createTrunk.isPending}
               className="px-5 py-2.5 rounded-xl font-bold text-sm bg-primary text-white hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2"
             >
               {createTrunk.isPending && <span className="material-symbols-outlined animate-spin text-[18px]">sync</span>}

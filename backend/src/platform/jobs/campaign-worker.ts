@@ -1,5 +1,5 @@
 import { query, queryMany, queryOne } from '../db/client.js';
-import { startSession } from '../../domain/realestate/services/session.service.js';
+import { startSession } from '../../domain/crm/services/session.service.js';
 import { dialOutbound, getTrunkForTenant } from '../services/sip/telephony.service.js';
 import { generateCanonicalRoomName } from '../../shared/index.js';
 

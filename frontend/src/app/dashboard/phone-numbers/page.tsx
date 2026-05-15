@@ -5,6 +5,8 @@ import {
   useAssignPhoneNumber,
   usePhoneNumbersQuery,
   useUnassignPhoneNumber,
+  useAddPhoneNumber,
+  useSipTrunksQuery,
 } from '@/features/telephony/hooks';
 import type { PhoneNumber } from '@/features/telephony/types';
 import { LoadingState } from '@/components/ui/loading-state';
@@ -12,6 +14,7 @@ import { ErrorState } from '@/components/ui/error-state';
 import { PageHeader, StatusBadge } from '@/components/ui/status-badge';
 import { authService } from '@/services/auth.service';
 import { SipTrunkAddModal } from './SipTrunkAddModal';
+import { PhoneNumberAddModal } from './PhoneNumberAddModal';
 
 function formatDuration(seconds = 0) {
   const minutes = Math.floor(seconds / 60);
@@ -28,10 +31,12 @@ function statusVariant(status: PhoneNumber['status']) {
 
 export default function PhoneNumbersPage() {
   const { data, isLoading, error, refetch } = usePhoneNumbersQuery();
+  const { data: sipData } = useSipTrunksQuery();
   const assignMutation = useAssignPhoneNumber();
   const unassignMutation = useUnassignPhoneNumber();
   const [tenantId, setTenantId] = useState('');
   const [isSipModalOpen, setIsSipModalOpen] = useState(false);
+  const [isAddNumberModalOpen, setIsAddNumberModalOpen] = useState(false);
 
   useEffect(() => {
     authService.getCurrentUser()
@@ -68,15 +73,24 @@ export default function PhoneNumbersPage() {
     <div className="h-full flex flex-col">
       <PageHeader
         title="Phone Numbers"
-        subtitle="Manage provisioned numbers, routing, assignment, and usage."
+        subtitle="Manage SIP trunks, assign numbers to agents, and track call usage."
         action={
-          <button
-            onClick={() => setIsSipModalOpen(true)}
-            className="bg-primary hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-colors flex items-center gap-2"
-          >
-            <span className="material-symbols-outlined text-[18px]">cell_tower</span>
-            Add SIP Trunk
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setIsSipModalOpen(true)}
+              className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-colors flex items-center gap-2 hover:bg-slate-50"
+            >
+              <span className="material-symbols-outlined text-[18px]">cell_tower</span>
+              Add SIP Trunk
+            </button>
+            <button
+              onClick={() => setIsAddNumberModalOpen(true)}
+              className="bg-primary hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-colors flex items-center gap-2"
+            >
+              <span className="material-symbols-outlined text-[18px]">add</span>
+              Add Number
+            </button>
+          </div>
         }
       />
 
@@ -114,7 +128,7 @@ export default function PhoneNumbersPage() {
             <span className="material-symbols-outlined text-5xl text-slate-300 mb-4">sim_card_download</span>
             <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">No numbers yet</h3>
             <p className="text-sm text-slate-500 max-w-sm">
-              Add a SIP trunk with inbound numbers or provision numbers from your carrier to route calls into LeadMate.
+              Add a SIP trunk to connect your existing phone number, or provision a new one from your carrier. Your agent will answer calls on any assigned number.
             </p>
           </div>
         ) : (
@@ -144,9 +158,11 @@ export default function PhoneNumbersPage() {
 
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
-                    {number.trunk_name || 'Default'}
+                    {number.trunk_name || 'System Default'}
                   </p>
-                  <p className="text-xs text-slate-500">{number.trunk_provider || 'SIP'}</p>
+                  <p className="text-xs text-slate-500 truncate">
+                    {number.sip_trunk_id ? (number.trunk_provider || 'SIP BYOD') : 'Leadmate Platform'}
+                  </p>
                 </div>
 
                 <button
@@ -162,7 +178,92 @@ export default function PhoneNumbersPage() {
         )}
       </div>
 
+      {/* SIP Trunks Management Section */}
+      <div className="mt-8">
+        <h2 className="text-lg font-black font-headline text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+          <span className="material-symbols-outlined text-primary">hub</span>
+          Managed SIP Trunks
+        </h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {sipData?.sip_trunks?.map(trunk => (
+            <div key={trunk.id} className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex justify-between items-start mb-3">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <span className="material-symbols-outlined text-primary">router</span>
+                </div>
+                <StatusBadge 
+                  label={trunk.is_active ? 'Active' : 'Inactive'} 
+                  variant={trunk.is_active ? 'success' : 'neutral'} 
+                />
+              </div>
+              <h3 className="font-bold text-slate-900 dark:text-white truncate">{trunk.name}</h3>
+              <p className="text-xs text-slate-500 font-mono mt-1 truncate">{trunk.sip_host}</p>
+              
+              <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                <div>
+                  <p>Provider</p>
+                  <p className="text-slate-700 dark:text-slate-300 mt-0.5">{trunk.provider_name || 'Custom'}</p>
+                </div>
+                <div>
+                  <p>Transport</p>
+                  <p className="text-slate-700 dark:text-slate-300 mt-0.5">UDP / 5060</p>
+                </div>
+              </div>
+            </div>
+          ))}
+          
+          <button 
+            onClick={() => setIsSipModalOpen(true)}
+            className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-6 flex flex-col items-center justify-center text-slate-400 hover:border-primary hover:text-primary transition-all group"
+          >
+            <span className="material-symbols-outlined text-3xl mb-2 group-hover:scale-110 transition-transform">add_circle</span>
+            <span className="font-bold text-sm">Add New Trunk</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Inbound Configuration Guide */}
+      <div className="mt-8 p-6 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl border border-indigo-100 dark:border-indigo-800/50">
+        <div className="flex gap-4">
+          <div className="w-12 h-12 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center shadow-sm shrink-0">
+            <span className="material-symbols-outlined text-primary">info</span>
+          </div>
+          <div>
+            <h3 className="font-bold text-slate-900 dark:text-white">Inbound SIP Configuration</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+              To receive calls on your SIP numbers, point your telephony carrier (e.g. Twilio, Tata, Jio) to the following endpoint:
+            </p>
+            
+            <div className="mt-4 flex flex-wrap gap-4">
+              <div className="bg-white dark:bg-slate-900 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">SIP Server / Registrar</p>
+                <p className="text-sm font-mono font-bold text-primary">sip.livekit.cloud</p>
+              </div>
+              <div className="bg-white dark:bg-slate-900 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Port / Transport</p>
+                <p className="text-sm font-bold text-slate-700 dark:text-slate-300">5060 (UDP)</p>
+              </div>
+              <div className="bg-white dark:bg-slate-900 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Your Context (Tenant ID)</p>
+                <p className="text-sm font-mono text-slate-700 dark:text-slate-300">{tenantId.split('-')[0]}...</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-500 mt-4 italic">
+              Note: Since you are using LiveKit Cloud, your carrier should send SIP INVITEs to <strong>sip.livekit.cloud</strong>. 
+              Leadmate will automatically dispatch these calls to your agents based on the registered numbers.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {isSipModalOpen && <SipTrunkAddModal onClose={() => setIsSipModalOpen(false)} />}
+      {isAddNumberModalOpen && (
+        <PhoneNumberAddModal 
+          onClose={() => setIsAddNumberModalOpen(false)} 
+          onSuccess={() => refetch()}
+        />
+      )}
     </div>
   );
 }

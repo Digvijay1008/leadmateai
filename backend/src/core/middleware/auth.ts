@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../config/index.js';
-import { findTenantById, findTenantByUserId, findTenantByWidgetKey } from '../../domain/realestate/repositories/tenant.repository.js';
+import { findTenantById, findTenantByUserId, findTenantByWidgetKey } from '../../domain/crm/repositories/tenant.repository.js';
 import { UnauthorizedError, ForbiddenError } from '../../shared/utils/errors.js';
 
 // ===========================================

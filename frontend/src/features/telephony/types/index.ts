@@ -104,30 +104,55 @@ export interface SipTrunkCreateRequest {
 
 // ─── Voice Config Types ─────────────────────────────────────────────────────
 
-export type VoicePreset = 'professional' | 'friendly' | 'casual' | 'formal';
-export type VoiceLanguage = 'en-US' | 'en-GB' | 'es-ES' | 'fr-FR' | 'de-DE' | 'hi-IN';
+export type VoicePreset = 'standard' | 'growth' | 'regional';
+export type VoiceLanguage = 'en-US' | 'en-GB' | 'en-IN' | 'es-ES' | 'fr-FR' | 'de-DE' | 'hi-IN';
 
-export interface VoiceConfig {
-  system_prompt?: string;
+export interface AgentConfig {
+  // Identity
+  agent_name?: string;
   greeting_message?: string;
-  voice_preset?: string;
-  language?: string;
-  goodbye_message?: string;
-  interruption_mode?: 'adaptive' | 'strict' | 'none';
-  max_call_duration_seconds?: number;
+  system_prompt?: string;
+  personality?: string;
+  business_context?: string;
+
+  // LLM
+  llm_provider?: string;
+  llm_model?: string;
+  temperature?: number;
+
+  // Voice / Audio
+  tts_provider?: string;
+  tts_voice_id?: string;
+  tts_language?: string;
+  speech_speed?: number;
+  interruption_sensitivity?: string;
+
+  // STT
+  stt_provider?: string;
+  stt_language?: string;
+
+  // Tools
+  enabled_tools?: string[];
+  booking_enabled?: boolean;
+  transfer_enabled?: boolean;
+  capture_lead_enabled?: boolean;
+
+  // Call Behavior
+  silence_timeout_ms?: number;
+  max_call_duration?: number;
+  voicemail_behavior?: string;
+  fallback_message?: string;
 }
 
-export interface VoiceConfigUpdateInput {
-  system_prompt?: string;
-  greeting_message?: string;
-  voice_preset?: VoicePreset;
-  language?: VoiceLanguage;
-  goodbye_message?: string;
-  max_call_duration_seconds?: number;
-  interruption_mode?: 'adaptive' | 'strict' | 'none';
+export interface AgentConfigUpdateInput extends Partial<AgentConfig> {
+  // frontend specific helpers mapped in API
   tone?: string;
   behavior_rules?: string;
 }
+
+// Keep legacy for compatibility during refactor
+export type VoiceConfig = AgentConfig;
+export type VoiceConfigUpdateInput = AgentConfigUpdateInput;
 
 // ─── LiveKit Settings Types ─────────────────────────────────────────────────
 

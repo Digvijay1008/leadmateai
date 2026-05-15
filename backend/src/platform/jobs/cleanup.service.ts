@@ -8,7 +8,7 @@
  */
 
 import { query, queryMany } from '../db/client.js';
-import { expireStaleHolds, settleHold, releaseHold } from '../../domain/realestate/repositories/wallet.repository.js';
+import { expireStaleHolds, settleHold, releaseHold } from '../../domain/crm/repositories/wallet.repository.js';
 import { closeRoom, getRoomInfo } from '../services/livekit.service.js';
 import { calculateBilledSeconds, calculateCost } from '../../shared/index.js';
 

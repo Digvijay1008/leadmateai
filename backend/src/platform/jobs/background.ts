@@ -8,7 +8,7 @@
  */
 
 import { query, queryMany } from '../db/client.js';
-import { expireStaleHolds } from '../../domain/realestate/repositories/wallet.repository.js';
+import { expireStaleHolds } from '../../domain/crm/repositories/wallet.repository.js';
 import { config } from '../../core/index.js';
 import { closeRoom } from '../services/livekit.service.js';
 import { processCampaignCallsJob } from './campaign-worker.js';

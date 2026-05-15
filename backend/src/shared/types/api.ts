@@ -154,13 +154,14 @@ export interface AgentSessionManifest {
     // Timing constraints
     max_duration_seconds: number;
     inactivity_timeout_seconds: number;
+    silence_timeout_ms: number;
 
     // Voice configuration
     voice: {
         persona_id: string;
         provider: string;
         voice_id: string;
-        speaking_rate?: number;
+        speaking_rate: number;
     };
 
     // STT configuration
@@ -175,7 +176,7 @@ export interface AgentSessionManifest {
         provider: string;
         model: string;
         system_prompt: string;
-        temperature?: number;
+        temperature: number;
     };
 
     // TTS configuration
@@ -183,11 +184,15 @@ export interface AgentSessionManifest {
         provider: string;
         model: string;
         voice_id: string;
+        language: string;
     };
 
     // Agent behavior
     greeting_message: string;
     goodbye_message: string;
+    fallback_message: string;
+    interruption_sensitivity: 'immediate' | 'polite' | 'none';
+    voicemail_behavior: string;
     tools_enabled: string[];
 
     // Backend API access

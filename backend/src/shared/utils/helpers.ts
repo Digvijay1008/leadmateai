@@ -94,30 +94,40 @@ export function calculateHoldAmount(
  * - DB writes
  * - LiveKit API calls
  * - Webhook reconciliation
+ * 
+ * Format: call-{tenantHexPrefix}-{sessionId}
+ * The prefix allows LiveKit SIP Dispatch rules to match rooms automatically.
  */
-export function generateCanonicalRoomName(sessionId: string): string {
-    return `leadmate-session-${sessionId}`;
+export function generateCanonicalRoomName(sessionId: string, tenantId: string): string {
+    const tenantHexPrefix = tenantId.replace(/-/g, '').substring(0, 8);
+    return `call-${tenantHexPrefix}-${sessionId}`;
 }
 
 /**
  * Backward-compatible alias.
- * Kept to avoid breakage while older call sites are migrated.
  */
-export function generateRoomName(_tenantId: string, sessionId: string): string {
-    return generateCanonicalRoomName(sessionId);
+export function generateRoomName(tenantId: string, sessionId: string): string {
+    return generateCanonicalRoomName(sessionId, tenantId);
 }
 
 /**
  * Extract session UUID from canonical room name.
+ * Handles format: call-{hexPrefix}-{sessionId}
  * Returns null for unknown formats.
  */
 export function parseSessionIdFromRoomName(roomName: string): string | null {
-    const canonicalPrefix = 'leadmate-session-';
-    if (!roomName.startsWith(canonicalPrefix)) {
+    // Format: call-{8chars}-{uuid}
+    const parts = roomName.split('-');
+    if (parts.length < 3 || parts[0] !== 'call') {
         return null;
     }
-    const candidate = roomName.slice(canonicalPrefix.length);
-    return isValidUUID(candidate) ? candidate : null;
+
+    // The sessionId is the rest of the string after 'call-{hex}-'
+    // e.g. call-425624ad-550e8400-e29b-41d4-a716-446655440000
+    // bits: [call, 425624ad, 550e8400, e29b, 41d4, a716, 446655440000]
+    // sessionId is bits[2..] joined by '-'
+    const sessionId = parts.slice(2).join('-');
+    return isValidUUID(sessionId) ? sessionId : null;
 }
 
 /**

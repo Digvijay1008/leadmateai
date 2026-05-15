@@ -1,0 +1,78 @@
+﻿Fetching SIP Trunks from LiveKit...
+--- LIVEKIT TRUNKS ---
+[
+  {
+    "sipTrunkId": "ST_mRR6oNwwQVJF",
+    "inboundAddresses": [],
+    "outboundAddress": "",
+    "outboundNumber": "+919484957097",
+    "inboundNumbersRegex": [],
+    "inboundUsername": "trunk_mvrxo8blizgc",
+    "inboundPassword": "UXazmgLnG7S6Lt8ijaf6mjE6",
+    "outboundUsername": "",
+    "outboundPassword": "",
+    "inboundNumbers": [],
+    "name": "VoiceLink Primary (Inbound)",
+    "metadata": "",
+    "transport": "SIP_TRANSPORT_AUTO",
+    "kind": "TRUNK_INBOUND"
+  },
+  {
+    "sipTrunkId": "ST_mtrrL2Lcjfdf",
+    "inboundAddresses": [],
+    "outboundAddress": "app.voicelink.co.in:3300",
+    "outboundNumber": "+919484957097",
+    "inboundNumbersRegex": [],
+    "inboundUsername": "",
+    "inboundPassword": "",
+    "outboundUsername": "trunk_mvrxo8blizgc",
+    "outboundPassword": "UXazmgLnG7S6Lt8ijaf6mjE6",
+    "inboundNumbers": [],
+    "name": "VoiceLink Primary",
+    "metadata": "",
+    "transport": "SIP_TRANSPORT_UDP",
+    "kind": "TRUNK_OUTBOUND"
+  }
+]
+
+Fetching Dispatch Rules from LiveKit...
+--- LIVEKIT DISPATCH RULES ---
+[
+  {
+    "sipDispatchRuleId": "SDR_8CrWbxHqNSnV",
+    "rule": {
+      "dispatchRuleIndividual": {
+        "roomPrefix": "call-425624ad-",
+        "pin": ""
+      }
+    },
+    "trunkIds": [
+      "ST_mRR6oNwwQVJF"
+    ],
+    "hidePhoneNumber": false,
+    "name": "VoiceLink Primary - Inbound Dispatch",
+    "metadata": "{\"tenant_id\":\"425624ad-1b83-4f9c-adf5-0e03c886829c\",\"source\":\"sip_inbound\"}",
+    "inboundNumbers": [],
+    "attributes": {},
+    "roomPreset": "",
+    "roomConfig": {
+      "name": "",
+      "emptyTimeout": 0,
+      "departureTimeout": 0,
+      "maxParticipants": 0,
+      "minPlayoutDelay": 0,
+      "maxPlayoutDelay": 0,
+      "syncStreams": false,
+      "agents": [
+        {
+          "agentName": "leadmate-agent",
+          "metadata": "{\"tenant_id\":\"425624ad-1b83-4f9c-adf5-0e03c886829c\",\"source\":\"sip_inbound\"}"
+        }
+      ],
+      "metadata": ""
+    },
+    "krispEnabled": false,
+    "mediaEncryption": "SIP_MEDIA_ENCRYPT_DISABLE",
+    "numbers": []
+  }
+]

@@ -66,7 +66,7 @@ export default function CampaignsPage() {
             <span className="material-symbols-outlined text-4xl">campaign</span>
           </div>
           <h2 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-2 font-headline">No Campaigns Yet</h2>
-          <p className="text-slate-500 max-w-sm mb-6">Create your first campaign to upload leads and automate bulk outbound dialing.</p>
+          <p className="text-slate-500 max-w-sm mb-6">Create your first campaign to upload contacts and automate bulk outbound dialing.</p>
           <button 
             onClick={() => setIsModalOpen(true)}
             className="bg-primary/10 text-primary hover:bg-primary/20 font-bold py-2.5 px-6 rounded-xl transition-all"
@@ -98,7 +98,7 @@ export default function CampaignsPage() {
               
               <div className="grid grid-cols-3 gap-4 mb-6">
                 <div>
-                  <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1">Leads</p>
+                  <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1">Contacts</p>
                   <p className="font-semibold text-slate-700 dark:text-slate-300">{campaign.total_leads}</p>
                 </div>
                 <div>

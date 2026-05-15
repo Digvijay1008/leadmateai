@@ -55,6 +55,7 @@ export function VoiceWidget({
     disconnect,
     toggleMute,
     audioLevel,
+    agentAudioLevel,
   } = useVoiceWidget({
     tenantId,
     config: widgetConfig,
@@ -173,6 +174,8 @@ export function VoiceWidget({
         <ExpandedCallPanel
           state={state}
           audioLevel={audioLevel}
+          agentAudioLevel={agentAudioLevel}
+          isAgentSpeaking={connectionState.isAgentSpeaking}
           transcript={transcript}
           isMuted={state === WidgetState.MUTED}
           networkQuality={connectionState.networkQuality}
@@ -196,7 +199,7 @@ export function VoiceWidget({
       {!embedded && (
         <FloatingBubbleButton
           state={state}
-          audioLevel={audioLevel}
+          audioLevel={Math.max(audioLevel, agentAudioLevel)}
           onClick={handleBubbleClick}
           primaryColor={theme?.primaryColor}
         />

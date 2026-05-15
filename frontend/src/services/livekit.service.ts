@@ -62,7 +62,7 @@ export interface SessionTokenResponse {
 
 export type StateCallback         = (state: ConnectionState) => void;
 export type TranscriptCallback    = (entry: TranscriptEntry) => void;
-export type AudioLevelCallback    = (level: number) => void;
+export type AudioLevelCallback    = (userLevel: number, agentLevel: number) => void;
 export type ReconnectNeededCallback = (reason: ReconnectReason) => void;
 
 // ─── Failure classification ───────────────────────────────────────────────────
@@ -218,7 +218,18 @@ function startAudioAnalysis(stream: MediaStream, onLevel: AudioLevelCallback): v
       if (!analyserNode) return;
       analyserNode.getByteFrequencyData(dataArray);
       const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-      onLevel(avg / 255);
+      
+      // Get agent level from room
+      let agentLevel = 0;
+      if (room) {
+        // Find the most active remote participant
+        const remoteParticipants = Array.from(room.remoteParticipants.values());
+        if (remoteParticipants.length > 0) {
+          agentLevel = Math.max(...remoteParticipants.map(p => p.audioLevel));
+        }
+      }
+
+      onLevel(avg / 255, agentLevel);
       audioAnimFrame = requestAnimationFrame(tick);
     };
     audioAnimFrame = requestAnimationFrame(tick);
@@ -355,12 +366,37 @@ function wireRoomEvents(
     reconnectAttempts = 0;
     serverErrorAttempts = 0;
     circuitBreaker.reset();
-    onState({ state: WidgetState.CONNECTED, participantCount: r.remoteParticipants.size, audioEnabled: r.localParticipant.isMicrophoneEnabled, networkQuality: 'good' });
+    onState({ 
+      state: WidgetState.CONNECTED, 
+      participantCount: r.remoteParticipants.size, 
+      audioEnabled: r.localParticipant.isMicrophoneEnabled, 
+      networkQuality: 'good',
+      isAgentSpeaking: Array.from(r.remoteParticipants.values()).some(p => p.isSpeaking)
+    });
   });
 
   r.on(RoomEvent.ParticipantConnected, (_p: RemoteParticipant) => {
     if (!guard()) return;
-    onState({ state: WidgetState.CONNECTED, participantCount: r.remoteParticipants.size, audioEnabled: r.localParticipant.isMicrophoneEnabled, networkQuality: 'good' });
+    onState({ 
+      state: WidgetState.CONNECTED, 
+      participantCount: r.remoteParticipants.size, 
+      audioEnabled: r.localParticipant.isMicrophoneEnabled, 
+      networkQuality: 'good',
+      isAgentSpeaking: Array.from(r.remoteParticipants.values()).some(p => p.isSpeaking)
+    });
+  });
+
+  r.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
+    if (!guard()) return;
+    const isAgentSpeaking = speakers.some(s => s instanceof RemoteParticipant);
+    onState({ 
+      state: WidgetState.CONNECTED, 
+      participantCount: r.remoteParticipants.size, 
+      audioEnabled: r.localParticipant.isMicrophoneEnabled, 
+      networkQuality: 'good',
+      isAgentSpeaking,
+      agentAudioLevel: Math.max(0, ...speakers.filter(s => s instanceof RemoteParticipant).map(s => (s as RemoteParticipant).audioLevel))
+    });
   });
 
   r.on(RoomEvent.ParticipantDisconnected, () => {

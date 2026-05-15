@@ -18,28 +18,30 @@ export interface CampaignCreateRequest {
 
 export const campaignsApi = {
   listCampaigns: async (): Promise<CampaignListResponse[]> => {
-    const res = await fetchApi('/v1/campaigns');
-    return res as CampaignListResponse[];
+    const res = await fetchApi<{ campaigns: CampaignListResponse[] } | CampaignListResponse[]>('/v1/campaigns');
+    // Handle both array response and { campaigns: [] } response shapes
+    if (Array.isArray(res)) return res;
+    return (res as any).campaigns ?? [];
   },
 
   createCampaign: async (data: CampaignCreateRequest): Promise<CampaignListResponse> => {
-    const res = await fetchApi('/v1/campaigns', {
+    const res = await fetchApi<CampaignListResponse>('/v1/campaigns', {
       method: 'POST',
-      body: JSON.stringify(data),
+      data,  // use `data` not `body` so fetchApi serializes correctly
     });
-    return res as CampaignListResponse;
+    return res;
   },
 
   getCampaignDetails: async (id: string): Promise<CampaignListResponse> => {
-    const res = await fetchApi(`/v1/campaigns/${id}`);
-    return res as CampaignListResponse;
+    const res = await fetchApi<CampaignListResponse>(`/v1/campaigns/${id}`);
+    return res;
   },
 
   uploadLeads: async (id: string, leads: { phone_number: string, metadata?: any }[]): Promise<{ success: boolean; leads_added: number }> => {
-    const res = await fetchApi(`/v1/campaigns/${id}/leads`, {
+    const res = await fetchApi<{ success: boolean; leads_added: number }>(`/v1/campaigns/${id}/leads`, {
       method: 'POST',
-      body: JSON.stringify({ leads }),
+      data: { leads },  // use `data` not `body`
     });
-    return res as { success: boolean; leads_added: number };
+    return res;
   }
 };

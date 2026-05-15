@@ -2,7 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { config, errorHandler, notFoundHandler, globalRateLimit } from './core/index.js';
-import { realEstateRoutes } from './domain/realestate/index.js';
+import { crmRoutes } from './domain/crm/index.js';
+import internalSipRoutes from './platform/routes/internal/sip.routes.js';
 import { checkDatabaseConnection, closeDatabasePool, startBackgroundJobs, stopBackgroundJobs, startWebhookTaskWorker, stopWebhookTaskWorker } from './platform/index.js';
 
 
@@ -32,7 +33,7 @@ app.use(cors({
             'https://widget.leadmate.ai',
         ],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-Id', 'X-Tenant-Id'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-Id', 'X-Tenant-Id', 'x-internal-key'],
     credentials: true,
 }));
 
@@ -64,7 +65,10 @@ if (config.server.isDev) {
 // ROUTES
 // ===========================================
 
-app.use('/api', realEstateRoutes);
+app.use('/api', crmRoutes);
+
+// Internal service-to-service routes (agent <-> backend)
+app.use('/api/v1/internal/sip', internalSipRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {

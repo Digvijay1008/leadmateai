@@ -14,6 +14,21 @@ patch_*.js
 *.log
 *.err
 
+# ── AI tool session logs & configs (may contain secrets) ─────────────────────
+Docs/
+.claude/
+.codex/
+.cursor/
+.kiro/
+.opencode.json
+.windsurfrules
+.cursorrules
+.mcp.json
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+antigravity-skills/
+
 # ── code-review-graph ────────────────────────────────────────────────────────
 .code-review-graph/
 
@@ -54,3 +69,6 @@ Desktop.ini
 .idea/
 *.swp
 *.swo
+
+# Documentation & large PDFs
+*.pdf

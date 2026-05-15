@@ -1,168 +1,302 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { useDashboardSummaryQuery } from '@/features/analytics/hooks';
 import { useSessionsQuery } from '@/features/sessions/hooks';
-import { LoadingState } from '@/components/ui/loading-state';
-import { ErrorState } from '@/components/ui/error-state';
-import { KpiCard } from '@/components/ui/kpi-card';
-import Link from 'next/link';
 
-function formatCurrency(value: number | undefined): string {
-  if (!value) return '$0';
-  if (value >= 10000000) return `$${(value / 10000000).toFixed(1)}Cr`;
-  if (value >= 100000) return `$${(value / 100000).toFixed(1)}L`;
-  return `$${(value / 1000).toFixed(0)}k`;
+// ─── Types ──────────────────────────────────────────────────────────────────
+
+type TimeRange = '7days' | '30days' | '90days';
+
+interface Session {
+  id?: string;
+  duration_seconds?: number;
+  total_cost?: number;
+  status?: string;
+  created_at?: string;
 }
 
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function formatDuration(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return s > 0 ? `${m}m ${s}s` : `${m}m`;
+}
+
+function formatMoney(value: number): string {
+  if (value >= 100000) return `₹${(value / 100000).toFixed(1)}L`;
+  if (value >= 1000) return `₹${(value / 1000).toFixed(1)}k`;
+  return `₹${value.toFixed(0)}`;
+}
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+// ─── Stat Card ──────────────────────────────────────────────────────────────
+
+interface StatCardProps {
+  label: string;
+  value: string | number;
+  icon: string;
+  sub?: string;
+  accent?: string;
+  live?: boolean;
+}
+
+function StatCard({ label, value, icon, sub, accent = 'text-indigo-500', live }: StatCardProps) {
+  return (
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex items-start gap-3">
+      <div className={`w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0`}>
+        <span className={`material-symbols-outlined text-[18px] ${accent}`}>{icon}</span>
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-medium text-slate-500 dark:text-slate-400 truncate">{label}</p>
+        <p className="text-xl font-bold text-slate-900 dark:text-white mt-0.5 leading-none">
+          {value}
+        </p>
+        {sub && (
+          <p className="text-[11px] text-slate-400 mt-1 truncate">{sub}</p>
+        )}
+      </div>
+      {live && (
+        <span className="flex items-center gap-1 shrink-0 mt-0.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Live</span>
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ─── Setup Checklist ────────────────────────────────────────────────────────
+
+const SETUP_STEPS = [
+  {
+    step: 1,
+    title: 'Create Agent',
+    desc: 'Set system prompt, voice, and language',
+    href: '/dashboard/agent',
+    icon: 'smart_toy',
+  },
+  {
+    step: 2,
+    title: 'Upload Knowledge',
+    desc: 'Add SOPs, FAQs, and product docs',
+    href: '/dashboard/knowledge',
+    icon: 'library_books',
+  },
+  {
+    step: 3,
+    title: 'Connect SIP Number',
+    desc: 'Add a phone number and SIP trunk',
+    href: '/dashboard/phone-numbers',
+    icon: 'sim_card',
+  },
+  {
+    step: 4,
+    title: 'Test a Call',
+    desc: 'Dial in and verify the full experience',
+    href: '/dashboard/dialer',
+    icon: 'call',
+  },
+  {
+    step: 5,
+    title: 'Launch Campaign',
+    desc: 'Import contacts and start outbound calls',
+    href: '/dashboard/campaigns',
+    icon: 'rocket_launch',
+  },
+] as const;
+
+// ─── Session Row ─────────────────────────────────────────────────────────────
+
+function SessionRow({ session, index }: { session: Session; index: number }) {
+  const isConnected = session.status === 'completed' || session.status === 'active';
+  return (
+    <div className="flex items-center gap-3 py-2.5 px-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+      <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
+        isConnected
+          ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
+          : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+      }`}>
+        <span className="material-symbols-outlined text-[14px]">call</span>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+          Voice Session #{(index + 1).toString().padStart(3, '0')}
+        </p>
+        <p className="text-xs text-slate-400">
+          {session.duration_seconds ? formatDuration(session.duration_seconds) : '—'}
+          {session.total_cost ? ` · $${session.total_cost.toFixed(3)}` : ''}
+        </p>
+      </div>
+      <div className="text-right shrink-0">
+        <span className={`inline-block px-2 py-0.5 rounded-md text-[11px] font-bold ${
+          isConnected
+            ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+            : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+        }`}>
+          {session.status ?? 'unknown'}
+        </span>
+        {session.created_at && (
+          <p className="text-[11px] text-slate-400 mt-0.5">{timeAgo(session.created_at)}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Page ───────────────────────────────────────────────────────────────────
+
 export default function DashboardPage() {
-  const [timeRange, setTimeRange] = useState<'7days' | '30days' | '90days' | 'all'>('30days');
-  const {
-    data: summary,
-    isLoading: loadingDash,
-    error: errorDash,
-    refetch: refetchDash,
-  } = useDashboardSummaryQuery();
-  const {
-    data: sessionsData,
-    isLoading: loadingSess,
-    error: errorSess,
-    refetch: refetchSess,
-  } = useSessionsQuery({ period: timeRange, limit: 10 });
+  const [timeRange, setTimeRange] = useState<TimeRange>('30days');
 
+  const { data: summary, isLoading: loadingDash } = useDashboardSummaryQuery();
+  const { data: sessionsData, isLoading: loadingSess } = useSessionsQuery({
+    period: timeRange,
+    limit: 10,
+  });
+
+  const sessions: Session[] = sessionsData?.sessions ?? [];
   const loading = loadingDash || loadingSess;
-  const error = errorDash || errorSess;
-  const refetch = () => { refetchDash(); refetchSess(); };
-  const sessions = sessionsData?.sessions ?? [];
 
-  if (loading) return <LoadingState message="Loading dashboard..." />;
-  if (error) return <ErrorState message={error.message} onRetry={refetch} />;
+  const totalSessions = sessions.length;
+  const connectedSessions = sessions.filter(
+    s => s.status === 'completed' || s.status === 'active',
+  ).length;
+  const successRate = totalSessions > 0
+    ? Math.round((connectedSessions / totalSessions) * 100)
+    : 0;
+  const avgDuration = totalSessions > 0
+    ? Math.round(
+        sessions.reduce((sum, s) => sum + (s.duration_seconds ?? 0), 0) / totalSessions,
+      )
+    : 0;
 
-  const rangeLabels: Record<string, string> = {
-    '7days': 'This Week',
-    '30days': 'This Month',
-    '90days': 'This Quarter',
-    all: 'All Time',
+  const TIME_LABELS: Record<TimeRange, string> = {
+    '7days': '7d',
+    '30days': '30d',
+    '90days': '90d',
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Header */}
-      <header className="flex justify-between items-end mb-8">
+      <div className="flex items-end justify-between">
         <div>
-          <h1 className="text-3xl font-black font-headline text-slate-900 dark:text-white tracking-tight">
-            Overview
-          </h1>
-          <p className="text-sm font-medium text-slate-500 mt-1">
-            Here&apos;s what your AI agents have been up to.
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white">Overview</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            AI call operations at a glance.
           </p>
         </div>
-        <div className="flex gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-1 shadow-sm">
+        <div className="flex gap-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-0.5">
           {(['7days', '30days', '90days'] as const).map((range) => (
             <button
               key={range}
               onClick={() => setTimeRange(range)}
-              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
                 timeRange === range
-                  ? 'bg-primary text-white shadow'
+                  ? 'bg-indigo-500 text-white shadow-sm'
                   : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
               }`}
             >
-              {rangeLabels[range]}
+              {TIME_LABELS[range]}
             </button>
           ))}
         </div>
-      </header>
+      </div>
 
-      {/* KPI Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <KpiCard
-          label="Total Leads"
-          value={summary?.leads_this_month ?? 0}
-          trend="+0%"
-          icon="group"
-          color="text-indigo-500"
-          bg="bg-indigo-50 dark:bg-indigo-900/30"
-          trendType="positive"
+      {/* KPI Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+        <StatCard
+          label="Total Sessions"
+          value={loading ? '—' : totalSessions}
+          icon="headset_mic"
+          sub={`${timeRange === '7days' ? 'this week' : timeRange === '30days' ? 'this month' : 'this quarter'}`}
+          accent="text-indigo-500"
         />
-        <KpiCard
+        <StatCard
           label="Active Calls"
-          value={summary?.sessions_today ?? 0}
-          trend="Live"
-          icon="mic"
-          color="text-emerald-500"
-          bg="bg-emerald-50 dark:bg-emerald-900/30"
-          trendType="live"
+          value={loading ? '—' : (summary?.sessions_today ?? 0)}
+          icon="call"
+          sub="right now"
+          accent="text-emerald-500"
+          live
         />
-        <KpiCard
-          label="Booked Visits"
-          value={summary?.leads_converted ?? 0}
-          trend="+0%"
-          icon="event_available"
-          color="text-amber-500"
-          bg="bg-amber-50 dark:bg-amber-900/30"
-          trendType="positive"
+        <StatCard
+          label="AI Success Rate"
+          value={loading ? '—' : `${successRate}%`}
+          icon="verified"
+          sub={`${connectedSessions} connected`}
+          accent="text-teal-500"
         />
-        <KpiCard
-          label="Conversion %"
-          value={`${summary?.conversion_rate?.toFixed(1) ?? 0}%`}
-          trend="+0%"
-          icon="trending_up"
-          color="text-primary"
-          bg="bg-primary/10"
-          trendType="positive"
+        <StatCard
+          label="Avg Duration"
+          value={loading ? '—' : formatDuration(avgDuration)}
+          icon="timer"
+          sub="per session"
+          accent="text-amber-500"
         />
-        <KpiCard
+        <StatCard
           label="Wallet Balance"
-          value={formatCurrency(summary?.wallet_balance)}
-          icon="payments"
-          color="text-teal-500"
-          bg="bg-teal-50 dark:bg-teal-900/30"
+          value={loading ? '—' : formatMoney(summary?.wallet_balance ?? 0)}
+          icon="account_balance_wallet"
+          sub={summary && summary.wallet_balance < 100 ? '⚠ Low balance' : 'available'}
+          accent={(summary?.wallet_balance ?? 0) < 100 ? 'text-red-500' : 'text-slate-500'}
         />
       </div>
 
-      {/* Content Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-4">
-        {/* Recent Sessions */}
-        <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 overflow-hidden flex flex-col h-[400px]">
-          <div className="flex justify-between items-center mb-6 shrink-0">
-            <h2 className="text-lg font-bold font-headline">Recent Sessions</h2>
+      {/* Main content row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Session feed */}
+        <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+            <h2 className="text-sm font-bold text-slate-800 dark:text-slate-200">Recent Sessions</h2>
             <Link
               href="/dashboard/calls"
-              className="text-primary text-sm font-bold hover:underline"
+              className="text-xs font-semibold text-indigo-500 hover:text-indigo-600 transition-colors"
             >
-              View All
+              View all →
             </Link>
           </div>
 
-          <div className="overflow-y-auto pr-2 flex-1">
-            {sessions.length === 0 ? (
-              <div className="py-4">
+          <div className="flex-1 divide-y divide-slate-100 dark:divide-slate-800">
+            {loading ? (
+              <div className="p-4 text-sm text-slate-400 text-center">Loading...</div>
+            ) : sessions.length === 0 ? (
+              <div className="px-4 py-6">
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">
-                  Get started — complete these steps
+                  Get started
                 </p>
-                <div className="space-y-2">
-                  {[
-                    { step: 1, label: 'Create an AI Agent', desc: 'Configure your voice personality and system prompt', href: '/dashboard/agent', icon: 'smart_toy', color: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' },
-                    { step: 2, label: 'Upload Knowledge', desc: 'Add SOPs, FAQs, and docs so your agent can answer questions', href: '/dashboard/knowledge', icon: 'library_books', color: 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' },
-                    { step: 3, label: 'Add a Phone Number', desc: 'Assign a number so customers can call your AI', href: '/dashboard/phone-numbers', icon: 'phone', color: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' },
-                    { step: 4, label: 'Make a Test Call', desc: 'Dial in and verify the full voice experience works', href: '/dashboard/dialer', icon: 'call', color: 'bg-primary/10 text-primary' },
-                  ].map(({ step, label, desc, href, icon, color }) => (
+                <div className="space-y-1">
+                  {SETUP_STEPS.map(({ step, title, desc, href, icon }) => (
                     <Link
                       key={step}
                       href={href}
-                      className="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group"
+                      className="flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group"
                     >
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
-                        <span className="material-symbols-outlined text-[20px]">{icon}</span>
+                      <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 transition-colors">
+                        <span className="material-symbols-outlined text-[14px] text-slate-500 group-hover:text-indigo-500 transition-colors">
+                          {icon}
+                        </span>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-slate-800 dark:text-white group-hover:text-primary transition-colors">
-                          <span className="text-slate-400 font-medium mr-1">{step}.</span>{label}
+                        <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                          <span className="text-slate-400 font-medium">{step}. </span>{title}
                         </p>
-                        <p className="text-xs text-slate-500 mt-0.5 truncate">{desc}</p>
+                        <p className="text-xs text-slate-400 truncate">{desc}</p>
                       </div>
-                      <span className="material-symbols-outlined text-slate-300 group-hover:text-primary transition-colors text-[18px]">
+                      <span className="material-symbols-outlined text-slate-300 group-hover:text-indigo-400 transition-colors text-[16px]">
                         chevron_right
                       </span>
                     </Link>
@@ -170,107 +304,87 @@ export default function DashboardPage() {
                 </div>
               </div>
             ) : (
-              <div className="space-y-4">
-                {sessions.slice(0, 10).map((session, index) => (
-                  <div
-                    key={session.id || index}
-                    className="flex gap-4 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
-                  >
-                    <div className="mt-1 text-slate-400">
-                      <span className="material-symbols-outlined">call</span>
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-bold text-slate-900 dark:text-white">
-                        Voice Session
-                      </p>
-                      <p className="text-xs font-medium text-slate-500 mt-0.5">
-                        Duration: {session.duration_seconds ?? 0}s | Cost: $
-                        {session.total_cost?.toFixed(2) ?? '0.00'}
-                      </p>
-                    </div>
-                    <span className="text-xs font-bold text-slate-400 self-center">
-                      {session.created_at
-                        ? new Date(session.created_at).toLocaleDateString()
-                        : ''}
-                    </span>
-                  </div>
-                ))}
-              </div>
+              sessions.map((session, i) => (
+                <SessionRow key={session.id ?? i} session={session} index={i} />
+              ))
             )}
           </div>
         </div>
 
-        {/* Side widgets */}
-        <div className="space-y-6">
-          {/* Stats summary */}
-          <div className="bg-primary/5 rounded-2xl border border-primary/20 p-6">
-            <h2 className="text-lg font-bold font-headline flex items-center gap-2 mb-4 text-primary">
-              <span className="material-symbols-outlined">leaderboard</span> Period Summary
+        {/* Side panel */}
+        <div className="space-y-3">
+          {/* Period stats */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+            <h2 className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-3">
+              Period Summary
             </h2>
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500 font-medium">Sessions</span>
-                <span className="font-bold text-slate-800 dark:text-white">{sessions.length}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500 font-medium">Leads Converted</span>
-                <span className="font-bold text-slate-800 dark:text-white">
-                  {summary?.leads_converted ?? 0}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500 font-medium">Conversion Rate</span>
-                <span className="font-bold text-emerald-600">
-                  {summary?.conversion_rate?.toFixed(1) ?? 0}%
-                </span>
-              </div>
+            <div className="space-y-2.5">
+              {[
+                { label: 'Sessions', value: totalSessions },
+                { label: 'Connected', value: connectedSessions },
+                {
+                  label: 'Contacts Engaged',
+                  value: summary?.leads_converted ?? 0,
+                },
+                {
+                  label: 'Conversion Rate',
+                  value: `${summary?.conversion_rate?.toFixed(1) ?? 0}%`,
+                  highlight: true,
+                },
+              ].map(({ label, value, highlight }) => (
+                <div key={label} className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-500">{label}</span>
+                  <span className={`text-sm font-bold ${highlight ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-800 dark:text-slate-200'}`}>
+                    {loading ? '—' : value}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Low balance warning */}
-          {summary && summary.wallet_balance < 100 && (
-            <div className="bg-red-50 dark:bg-red-900/10 rounded-2xl border border-red-100 dark:border-red-900/30 p-6">
-              <h2 className="text-lg font-bold font-headline flex items-center gap-2 mb-3 text-red-600 dark:text-red-400">
-                <span className="material-symbols-outlined">warning</span> Low Balance
-              </h2>
-              <p className="text-sm font-medium text-red-800 dark:text-red-300 mb-4">
-                Your wallet balance is low. Add funds to continue using voice services.
+          {/* Low balance alert */}
+          {!loading && summary && summary.wallet_balance < 100 && (
+            <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="material-symbols-outlined text-red-500 text-[18px]">warning</span>
+                <h3 className="text-sm font-bold text-red-700 dark:text-red-400">Low Balance</h3>
+              </div>
+              <p className="text-xs text-red-600 dark:text-red-400 mb-3">
+                Calls may stop if your balance runs out.
               </p>
               <Link
                 href="/dashboard/billing"
-                className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-sm font-bold py-2 px-4 rounded-xl transition-colors"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg transition-colors"
               >
-                <span className="material-symbols-outlined text-sm">add_card</span>
-                Top Up Wallet
+                <span className="material-symbols-outlined text-[14px]">add_card</span>
+                Top Up
               </Link>
             </div>
           )}
 
           {/* Quick actions */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
-            <h2 className="text-base font-bold font-headline mb-4">Quick Actions</h2>
-            <div className="space-y-2">
-              <Link
-                href="/dashboard/campaigns"
-                className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-sm font-semibold text-slate-700 dark:text-slate-300"
-              >
-                <span className="material-symbols-outlined text-primary">campaign</span>
-                New Campaign
-              </Link>
-              <Link
-                href="/dashboard/leads"
-                className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-sm font-semibold text-slate-700 dark:text-slate-300"
-              >
-                <span className="material-symbols-outlined text-primary">group_add</span>
-                Add Leads
-              </Link>
-              <Link
-                href="/dashboard/dialer"
-                className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-sm font-semibold text-slate-700 dark:text-slate-300"
-              >
-                <span className="material-symbols-outlined text-primary">dialpad</span>
-                Open Dialer
-              </Link>
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+            <h2 className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-3">
+              Quick Actions
+            </h2>
+            <div className="space-y-0.5">
+              {[
+                { label: 'New Campaign', href: '/dashboard/campaigns', icon: 'rocket_launch' },
+                { label: 'Open Dialer', href: '/dashboard/dialer', icon: 'dialpad' },
+                { label: 'Add Contacts', href: '/dashboard/contacts', icon: 'group_add' },
+                { label: 'Edit Agent', href: '/dashboard/agent', icon: 'smart_toy' },
+              ].map(({ label, href, icon }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors group"
+                >
+                  <span className="material-symbols-outlined text-[16px] text-indigo-400 group-hover:text-indigo-500 transition-colors">
+                    {icon}
+                  </span>
+                  {label}
+                </Link>
+              ))}
             </div>
           </div>
         </div>

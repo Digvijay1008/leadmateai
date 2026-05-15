@@ -24,11 +24,21 @@ export function WidgetPreview({ config, onPositionChange }: WidgetPreviewProps) 
               <p className="text-slate-500">This is how your widget will appear on your website.</p>
             </div>
           </div>
-          <VoiceWidget
-            tenantId={config.tenantId ?? 'demo-tenant'}
-            config={config}
-            embedded
-          />
+          
+          {config.tenantId ? (
+            <VoiceWidget
+              tenantId={config.tenantId}
+              config={config}
+              embedded
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm z-50">
+              <div className="text-center">
+                <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                <p className="text-sm font-medium text-slate-500">Initializing Preview...</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Position picker */}

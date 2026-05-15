@@ -10,6 +10,8 @@ import { ConnectionStatusBadge } from './ConnectionStatusBadge';
 interface ExpandedCallPanelProps {
   state: WidgetState;
   audioLevel: number;
+  agentAudioLevel?: number;
+  isAgentSpeaking?: boolean;
   transcript: { id: string; role: 'user' | 'agent'; text: string; timestamp: Date }[];
   isMuted: boolean;
   networkQuality: 'excellent' | 'good' | 'poor' | 'unknown';
@@ -30,6 +32,8 @@ interface ExpandedCallPanelProps {
 export function ExpandedCallPanel({
   state,
   audioLevel,
+  agentAudioLevel = 0,
+  isAgentSpeaking = false,
   transcript,
   isMuted,
   networkQuality,
@@ -89,7 +93,16 @@ export function ExpandedCallPanel({
             {agentName.charAt(0).toUpperCase()}
           </div>
           <div>
-            <h3 className="font-bold text-slate-900 dark:text-white leading-tight">{agentName}</h3>
+            <div className="flex items-center gap-1.5">
+              <h3 className="font-bold text-slate-900 dark:text-white leading-tight">{agentName}</h3>
+              {isAgentSpeaking && (
+                <span className="flex gap-0.5 items-center">
+                  <span className="w-1 h-1 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-1 h-1 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-1 h-1 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+                </span>
+              )}
+            </div>
             <ConnectionStatusBadge
               state={state}
               networkQuality={networkQuality}
@@ -193,13 +206,18 @@ export function ExpandedCallPanel({
           <>
             <div className="p-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
               <WaveformVisualizer
-                audioLevel={audioLevel}
+                audioLevel={Math.max(audioLevel, agentAudioLevel)}
                 isActive={isActive && !isMutedState}
                 color={theme.primaryColor}
               />
-              {isActive && (
+              {isActive && !isAgentSpeaking && (
                 <p className="text-sm text-slate-500 mt-2 font-medium text-center">
                   Speak now...
+                </p>
+              )}
+              {isActive && isAgentSpeaking && (
+                <p className="text-sm text-indigo-600 mt-2 font-medium text-center animate-pulse">
+                  {agentName} is speaking...
                 </p>
               )}
               {isMutedState && (

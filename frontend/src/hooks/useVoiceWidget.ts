@@ -40,6 +40,7 @@ interface UseVoiceWidgetReturn {
   toggleMute: () => Promise<void>;
   updateConfig: (updates: Partial<WidgetConfig>) => void;
   audioLevel: number;
+  agentAudioLevel: number;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -70,6 +71,7 @@ export function useVoiceWidget(options: UseVoiceWidgetOptions): UseVoiceWidgetRe
   const [isRefreshing, setIsRefreshing]     = useState(false);
   const [isTimerPaused, setIsTimerPaused]   = useState(false);
   const [audioLevel, setAudioLevel]         = useState(0);
+  const [agentAudioLevel, setAgentAudioLevel] = useState(0);
   const [config, setConfig]                 = useState<WidgetConfig>(() => ({
     ...DEFAULT_WIDGET_CONFIG,
     ...initialConfig,
@@ -179,8 +181,11 @@ export function useVoiceWidget(options: UseVoiceWidgetOptions): UseVoiceWidgetRe
 
   // ─── Audio level handler ──────────────────────────────────────────────────
 
-  const handleAudioLevel = useCallback((level: number) => {
-    if (isMountedRef.current) setAudioLevel(level);
+  const handleAudioLevel = useCallback((userLevel: number, agentLevel: number) => {
+    if (isMountedRef.current) {
+      setAudioLevel(userLevel);
+      setAgentAudioLevel(agentLevel);
+    }
   }, []);
 
   // ─── Service state sync ───────────────────────────────────────────────────
@@ -379,6 +384,7 @@ export function useVoiceWidget(options: UseVoiceWidgetOptions): UseVoiceWidgetRe
     }
 
     setAudioLevel(0);
+    setAgentAudioLevel(0);
     setTranscript([]); // clear transcript only on explicit user end
     transitionTo(WidgetState.ENDED);
 
@@ -425,6 +431,7 @@ export function useVoiceWidget(options: UseVoiceWidgetOptions): UseVoiceWidgetRe
     toggleMute,
     updateConfig,
     audioLevel,
+    agentAudioLevel,
   };
 }
 

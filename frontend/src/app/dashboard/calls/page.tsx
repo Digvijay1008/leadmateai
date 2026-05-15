@@ -435,7 +435,7 @@ export default function CallsPage() {
         {/* Filter bar */}
         <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
           <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-            {isLoading ? 'Loading…' : `${total.toLocaleString()} session${total !== 1 ? 's' : ''}`}
+            {isLoading ? 'Loading…' : `${(total ?? 0).toLocaleString()} session${total !== 1 ? 's' : ''}`}
           </p>
           {totalCost > 0 && (
             <p className="text-xs text-slate-500">

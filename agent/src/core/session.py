@@ -42,9 +42,11 @@ class LLMConfig:
 class TTSConfig:
     """Text-to-speech configuration from manifest."""
     
-    provider: str  # deepgram, elevenlabs, sarvam
+    provider: str  # deepgram, elevenlabs, sarvam, openai, cartesia
     model: str
     voice_id: str
+    language: str = "en-US"
+    speaking_rate: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -81,20 +83,29 @@ class SessionManifest:
     
     # RAG configuration
     knowledge_base_id: str | None = None
-    
+
+    # Extended behavior fields (defaults for backward compatibility)
+    silence_timeout_ms: int = 10000
+    fallback_message: str = "I'm sorry, I'm having trouble. Please try again."
+    interruption_sensitivity: str = "immediate"  # immediate | polite | none
+    voicemail_behavior: str = "hangup"           # hangup | leave_message | callback
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "SessionManifest":
         """Create manifest from dictionary (e.g., from API response)."""
+        tts_data = data["tts"]
+        voice_data = data["voice"]
         return cls(
             session_id=data["session_id"],
             tenant_id=data["tenant_id"],
             max_duration_seconds=data["max_duration_seconds"],
             inactivity_timeout_seconds=data["inactivity_timeout_seconds"],
+            silence_timeout_ms=data.get("silence_timeout_ms", 10000),
             voice=VoiceConfig(
-                persona_id=data["voice"]["persona_id"],
-                provider=data["voice"]["provider"],
-                voice_id=data["voice"]["voice_id"],
-                speaking_rate=data["voice"].get("speaking_rate", 1.0),
+                persona_id=voice_data.get("persona_id", "dynamic"),
+                provider=voice_data["provider"],
+                voice_id=voice_data["voice_id"],
+                speaking_rate=voice_data.get("speaking_rate", 1.0),
             ),
             stt=STTConfig(
                 provider=data["stt"]["provider"],
@@ -108,15 +119,20 @@ class SessionManifest:
                 temperature=data["llm"].get("temperature", 0.7),
             ),
             tts=TTSConfig(
-                provider=data["tts"]["provider"],
-                model=data["tts"]["model"],
-                voice_id=data["tts"]["voice_id"],
+                provider=tts_data["provider"],
+                model=tts_data.get("model", ""),
+                voice_id=tts_data.get("voice_id", ""),
+                language=tts_data.get("language", "en-US"),
+                speaking_rate=voice_data.get("speaking_rate", 1.0),
             ),
             greeting_message=data["greeting_message"],
             goodbye_message=data["goodbye_message"],
+            fallback_message=data.get("fallback_message", "I'm sorry, I'm having trouble."),
+            interruption_sensitivity=data.get("interruption_sensitivity", "immediate"),
+            voicemail_behavior=data.get("voicemail_behavior", "hangup"),
             tools_enabled=data.get("tools_enabled", []),
-            backend_api_url=data["backend_api_url"],
-            backend_auth_token=data["backend_auth_token"],
+            backend_api_url=data.get("backend_api_url", ""),
+            backend_auth_token=data.get("backend_auth_token", ""),
             knowledge_base_id=data.get("knowledge_base_id"),
         )
     
