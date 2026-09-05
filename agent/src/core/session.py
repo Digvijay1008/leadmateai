@@ -116,7 +116,7 @@ class SessionManifest:
                 provider=data["llm"]["provider"],
                 model=data["llm"]["model"],
                 system_prompt=data["llm"]["system_prompt"],
-                temperature=data["llm"].get("temperature", 0.7),
+                temperature=float(data["llm"].get("temperature", 0.7)),
             ),
             tts=TTSConfig(
                 provider=tts_data["provider"],

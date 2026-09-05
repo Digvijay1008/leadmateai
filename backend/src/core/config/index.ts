@@ -15,7 +15,7 @@ const envSchema = z.object({
     DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
     DATABASE_POOL_MAX: z.string().default('40'),
     DATABASE_IDLE_TIMEOUT_MS: z.string().default('30000'),
-    DATABASE_CONNECT_TIMEOUT_MS: z.string().default('2000'),
+    DATABASE_CONNECT_TIMEOUT_MS: z.string().default('10000'),
     SUPABASE_URL: z.string().url().optional(),
     SUPABASE_SERVICE_KEY: z.string().optional(),
 

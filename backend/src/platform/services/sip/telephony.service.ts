@@ -103,6 +103,12 @@ export async function dialOutbound(params: DialOutboundParams): Promise<{ sipPar
             participantIdentity: `sip-outbound-${Date.now()}`,
             participantName: `Call to ${to}`,
             waitUntilAnswered: true,
+            // Play a dial tone in the room until the callee picks up.
+            // This keeps the RTP media path alive and prevents VoiceLink's
+            // no-media timeout from killing the call before TTS starts.
+            playDialtone: true,
+            // Give the call 30 seconds to ring before giving up.
+            ringingTimeout: 30,
         };
 
         // Set caller ID if the trunk has a number configured
@@ -110,23 +116,33 @@ export async function dialOutbound(params: DialOutboundParams): Promise<{ sipPar
             opts.fromNumber = from;
         }
 
-        // VoiceLink tech prefix — DISABLED for debugging.
-        // The 45454 prefix was causing 480. Testing without it first.
-        // If bare E.164 also fails → issue is credentials or IP trust, not number format.
-        const dialNumber = to;  // Use raw E.164 (e.g. +919619810084)
+        // VoiceLink dial format — CONFIRMED from provider dashboard:
+        //   Example: SIP/45454xxxxxxxxxxx@trunk
+        //   Format:  tech_prefix(45454) + 10-digit local number (NO country code)
+        //
+        // FORMAT HISTORY:
+        //   "45454919619810084"  → 404 (included country code 91 — TOO MANY DIGITS)
+        //   "454549619810084"    → CORRECT: prefix + 10-digit local ✅
+        const rawE164 = to.replace("+", "");
+        // Strip country code 91 from Indian numbers to get 10-digit local
+        const localNumber = rawE164.startsWith("91") && rawE164.length === 12
+            ? rawE164.slice(2)   // "919619810084" → "9619810084"
+            : rawE164;           // fallback: use as-is
+        const dialNumber = "45454" + localNumber;
 
         console.log('[SIP] outbound_dial_attempt', {
             livekit_trunk_id: trunk.livekit_trunk_id,
             sip_host: trunk.sip_host,
             provider: trunk.provider_name,
             dial_number: dialNumber,
+            dial_number_with_prefix: "45454" + rawE164,
             from_number: from,
             room: roomName,
         });
 
         const participant = await client.createSipParticipant(
             trunk.livekit_trunk_id,   // LiveKit trunk ID (ST_xxx)
-            dialNumber,               // Raw E.164 — testing without tech prefix
+            dialNumber,               // With VoiceLink tech prefix: 45454XXXXXXXXXX
             roomName,
             opts
         );

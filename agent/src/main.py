@@ -89,10 +89,18 @@ async def uchchar_entrypoint(ctx: agents.JobContext):
     reporter = None
 
     try:
-        # --- INBOUND SIP FLOW ---
-        # When called via SIP Dispatch Rule, metadata only has {tenant_id, source}
-        # We must create a session + fetch manifest from the backend API.
+        # Step 0: Connect immediately to establish the media path.
+        # This sends initial RTP silence and prevents SIP timeouts.
+        logger.info("connecting_to_room", room=ctx.room.name)
+        t0 = time.monotonic()
+        await ctx.connect()
+        t_connect = time.monotonic()
+        logger.info("room_connected", elapsed_ms=int((t_connect - t0) * 1000))
+
+        # Step 1: Resolve manifest
         manifest = await _resolve_manifest(ctx)
+        t_manifest = time.monotonic()
+        logger.info("manifest_resolved", elapsed_ms=int((t_manifest - t_connect) * 1000))
 
         if manifest is None:
             await speak_rejection_and_disconnect(ctx)
@@ -111,7 +119,7 @@ async def uchchar_entrypoint(ctx: agents.JobContext):
             speech_speed=manifest.voice.speaking_rate,
         )
 
-        # Step 2: Create provider plugins via factory
+        # Step 2: Create provider plugins (these are constructors — fast)
         try:
             stt = create_stt(manifest.stt)
             llm = create_llm(manifest.llm)
@@ -126,24 +134,27 @@ async def uchchar_entrypoint(ctx: agents.JobContext):
             await speak_rejection_and_disconnect(ctx)
             return
 
+        t_providers = time.monotonic()
+        logger.info("providers_created", elapsed_ms=int((t_providers - t_manifest) * 1000))
+
         log_provider_config(
             manifest.stt, manifest.llm, manifest.tts,
             manifest.tenant_id, manifest.session_id,
         )
 
-        # Step 3: Create session reporter for backend communication
+        # Step 3: Create session reporter
         reporter = SessionReporter(manifest)
 
-        # Step 4: Activate session on backend (billing clock starts)
-        await reporter.activate_session()
+        # Step 4: Activate session on backend — FIRE AND FORGET.
+        # This is a billing notification. It must NOT block the greeting.
+        # If it fails, the finally block still reports session end.
+        asyncio.create_task(_activate_session_safe(reporter, manifest.session_id))
 
-        # Step 5: Resolve interruption behavior from manifest
+        # Step 5: Resolve interruption behavior
         interruption_sensitivity = getattr(manifest, "interruption_sensitivity", "immediate")
         allow_interruptions = interruption_sensitivity != "none"
 
-        # Step 6: Build and start agent session
-        # Use pre-warmed VAD if available (module-level cache), else load fresh.
-        # Pre-warmed = ~0.3s. Cold load = ~3s (model download from torch hub).
+        # Step 6: Build agent session with pre-warmed VAD
         vad = _CACHED_VAD or silero.VAD.load(
             min_silence_duration=0.4,
             min_speech_duration=0.05,
@@ -155,49 +166,55 @@ async def uchchar_entrypoint(ctx: agents.JobContext):
             llm=llm,
             tts=tts,
             vad=vad,
-            # MultilingualModel removed — requires model_q8.onnx download.
-            # Pure VAD turn detection is stable and works without any model files.
             allow_interruptions=allow_interruptions,
         )
 
+        t_session = time.monotonic()
         logger.info(
             "session_initialized",
             session_id=manifest.session_id,
             tenant_id=manifest.tenant_id,
             turn_detection="VAD (silero)",
-            vad_silence_ms=400,
             allow_interruptions=allow_interruptions,
-            interruption_sensitivity=interruption_sensitivity,
-            startup_latency_ms=int((time.monotonic() - session_start_time) * 1000),
+            elapsed_ms=int((t_session - t_providers) * 1000),
+            total_ms=int((t_session - session_start_time) * 1000),
         )
 
-        # Step 7: Build dynamic assistant — only enabled tools exposed to LLM
+        # Step 7: Build dynamic assistant
         assistant = build_assistant(manifest, reporter)
 
+        # Step 8: Start session (connects STT/TTS websockets)
         await session.start(
             room=ctx.room,
             agent=assistant,
         )
 
+        t_started = time.monotonic()
         logger.info(
             "session_started",
             session_id=manifest.session_id,
-            tenant_id=manifest.tenant_id,
+            elapsed_ms=int((t_started - t_session) * 1000),
+            total_ms=int((t_started - session_start_time) * 1000),
         )
 
-        # Step 8: Speak tenant greeting via TTS directly.
-        # Use session.say() instead of generate_reply() — this sends the greeting
-        # straight to TTS without an LLM round-trip. Faster, and works even if
-        # the LLM provider is down or rate-limited.
+        # Step 9: Greeting is now handled by Agent.on_enter() lifecycle hook
+        # in definitions.py. This is the official LiveKit pattern — it fires
+        # automatically when session.start() completes, and turn-taking works
+        # correctly after the greeting (fixes widget silence issue).
+
         t_greeting = time.monotonic()
-        await session.say(manifest.greeting_message, allow_interruptions=allow_interruptions)
         logger.info(
-            "greeting_dispatched",
+            "session_ready",
             session_id=manifest.session_id,
-            time_to_greeting_ms=int((time.monotonic() - t_greeting) * 1000),
+            time_to_ready_ms=int((t_greeting - session_start_time) * 1000),
         )
 
-        # Step 9: Wait for session to end (user hangs up, timeout, etc.)
+        # Step 10: Wait for session to end
+        try:
+            while True:
+                await asyncio.sleep(1)
+        except asyncio.CancelledError:
+            logger.info("session_completed", session_id=manifest.session_id)
 
     except Exception as e:
         import traceback
@@ -237,6 +254,17 @@ async def uchchar_entrypoint(ctx: agents.JobContext):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+async def _activate_session_safe(reporter: SessionReporter, session_id: str):
+    """Fire-and-forget session activation. Never blocks the greeting."""
+    try:
+        await reporter.activate_session()
+    except Exception as e:
+        logger.warning(
+            "activate_session_background_failed",
+            session_id=session_id,
+            error=str(e),
+        )
 
 async def _resolve_manifest(
     ctx: agents.JobContext

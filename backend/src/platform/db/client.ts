@@ -12,6 +12,8 @@ export const pool = new Pool({
     max: config.database.poolMax,
     idleTimeoutMillis: config.database.idleTimeoutMs,
     connectionTimeoutMillis: config.database.connectTimeoutMs,
+    // Supabase requires SSL — without this, connections fail on some networks
+    ssl: { rejectUnauthorized: false },
 });
 
 // ===========================================

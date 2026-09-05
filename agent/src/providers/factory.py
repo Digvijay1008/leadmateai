@@ -58,7 +58,7 @@ def create_stt(config: STTConfig):
 
     if provider == "deepgram":
         return lk_deepgram.STT(
-            model=config.model or "nova-3",
+            model=config.model or "nova-2",
             language=lang_short,
             api_key=os.environ.get("DEEPGRAM_API_KEY") or "",
         )
@@ -94,14 +94,14 @@ def create_llm(config: LLMConfig):
     if provider == "openai":
         return lk_openai.LLM(
             model=config.model or "gpt-4o-mini",
-            temperature=config.temperature,
+            temperature=float(config.temperature or 0.7),
             api_key=os.environ.get("OPENAI_API_KEY") or "",
         )
 
     if provider == "groq":
         return lk_groq.LLM(
             model=config.model or "llama-3.3-70b-versatile",
-            temperature=config.temperature,
+            temperature=float(config.temperature or 0.7),
             api_key=os.environ.get("GROQ_API_KEY") or "",
         )
 
@@ -120,7 +120,7 @@ def create_llm(config: LLMConfig):
             )
             return lk_openai.LLM(
                 model="gpt-4o-mini",
-                temperature=config.temperature,
+                temperature=float(config.temperature or 0.7),
                 api_key=os.environ.get("OPENAI_API_KEY") or "",
             )
 
@@ -139,7 +139,7 @@ def create_llm(config: LLMConfig):
             )
             return lk_openai.LLM(
                 model="gpt-4o-mini",
-                temperature=config.temperature,
+                temperature=float(config.temperature or 0.7),
                 api_key=os.environ.get("OPENAI_API_KEY") or "",
             )
 

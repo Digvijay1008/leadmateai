@@ -8,9 +8,8 @@ when the tenant has configured them. Disabled tools will NEVER appear to the LLM
 
 import time
 import random
-from typing import Annotated
-from livekit.agents import Agent
-from livekit.agents.llm import function_tool
+from typing import Annotated, Any
+from livekit.agents import Agent, RunContext, function_tool
 from src.core.utils import get_logger
 
 logger = get_logger("tools")
@@ -44,6 +43,8 @@ class UchcharAssistantBase(Agent):
         self.manifest = manifest
         self.backend_client = backend_client
         self._tools_enabled: set[str] = set(getattr(manifest, "tools_enabled", []))
+        # Store greeting for on_enter lifecycle hook
+        self._greeting_message: str = getattr(manifest, "greeting_message", "")
 
         logger.info(
             "assistant_initialized",
@@ -52,9 +53,26 @@ class UchcharAssistantBase(Agent):
             tools_enabled=list(self._tools_enabled),
         )
 
+    async def on_enter(self):
+        """Official Agent lifecycle hook — fires when session starts.
+
+        Uses generate_reply() for greeting instead of session.say() because:
+        1. It's the documented pattern (see LiveKit Agent docs)
+        2. It integrates with turn-taking properly (session knows the agent spoke)
+        3. The session will then correctly listen for user speech after greeting
+        """
+        if self._greeting_message:
+            await self.session.generate_reply(
+                instructions=f"Greet the user with this exact message: {self._greeting_message}"
+            )
+        else:
+            await self.session.generate_reply(
+                instructions="Greet the user warmly and introduce yourself."
+            )
+
     async def on_user_turn_completed(self, turn_ctx, new_message):
         try:
-            user_text = new_message.text_content()
+            user_text = new_message.text_content
             if not user_text or len(user_text.strip()) < 3:
                 return
 
@@ -66,7 +84,8 @@ class UchcharAssistantBase(Agent):
             # ------------------------------------------------------------------
             if has_kb:
                 filler = random.choice(_FILLER_PHRASES)
-                await self.session.say(filler, allow_interruptions=True)
+                if self.session is not None:
+                    await self.session.say(filler, allow_interruptions=True)
                 logger.debug(
                     "backchannel_injected",
                     filler=filler,
@@ -108,11 +127,16 @@ class UchcharAssistantBase(Agent):
 # ---------------------------------------------------------------------------
 
 class BookingMixin:
+    # Type hints for the IDE to stop showing 'red' errors
+    backend_client: Any
+    manifest: Any
+    def _tool_allowed(self, tool_name: str) -> bool: ...
+
     @function_tool()
     async def check_availability(
         self,
         date: Annotated[str, "Date in YYYY-MM-DD format"],
-        service_type: Annotated[str, "Type of service requested"] = None,
+        service_type: Annotated[str | None, "Type of service requested"] = None,
     ) -> str:
         """Check available appointment slots for a given date."""
         if not self._tool_allowed("check_availability"):
@@ -131,8 +155,8 @@ class BookingMixin:
         time_slot: Annotated[str, "Time in HH:MM format"],
         patient_name: Annotated[str, "Full name of the caller"],
         phone: Annotated[str, "Caller phone number"],
-        service_type: Annotated[str, "Type of appointment"] = None,
-        notes: Annotated[str, "Any additional notes"] = None,
+        service_type: Annotated[str | None, "Type of appointment"] = None,
+        notes: Annotated[str | None, "Any additional notes"] = None,
     ) -> str:
         """Book an appointment for the caller."""
         if not self._tool_allowed("book_appointment"):
@@ -157,13 +181,18 @@ class BookingMixin:
 # ---------------------------------------------------------------------------
 
 class LeadCaptureMixin:
+    # Type hints for the IDE
+    backend_client: Any
+    manifest: Any
+    def _tool_allowed(self, tool_name: str) -> bool: ...
+
     @function_tool()
     async def capture_lead(
         self,
         name: Annotated[str, "Caller's full name"],
         phone: Annotated[str, "Caller's phone number"],
         interest: Annotated[str, "What they are interested in"],
-        notes: Annotated[str, "Additional context"] = None,
+        notes: Annotated[str | None, "Additional context"] = None,
     ) -> str:
         """Capture a lead when caller is interested but not ready to book."""
         if not self._tool_allowed("capture_lead"):
@@ -181,6 +210,11 @@ class LeadCaptureMixin:
 # ---------------------------------------------------------------------------
 
 class TransferMixin:
+    # Type hints for the IDE
+    backend_client: Any
+    manifest: Any
+    def _tool_allowed(self, tool_name: str) -> bool: ...
+
     @function_tool()
     async def transfer_to_human(
         self,
@@ -202,6 +236,10 @@ class TransferMixin:
 # ---------------------------------------------------------------------------
 
 class BusinessInfoMixin:
+    # Type hints for the IDE
+    backend_client: Any
+    manifest: Any
+
     @function_tool()
     async def get_business_info(
         self,
